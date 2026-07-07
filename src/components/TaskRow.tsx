@@ -172,7 +172,7 @@ export function TaskRow({ task, category, isLast, onToggle, onOpen, onDelete }: 
           onClick={e => { e.stopPropagation(); onOpen(task); }}
           aria-label="View task"
         >
-          <span className="msym" style={{ fontSize: 19 }}>visibility</span>
+          <span className="msym" style={{ fontSize: 19 }}>info</span>
         </button>
       </div>
     </div>
