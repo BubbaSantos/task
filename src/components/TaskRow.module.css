@@ -3,13 +3,20 @@
   overflow: hidden;
   border-bottom: 1px solid var(--hairline);
 }
+.swipeWrapper:first-child {
+  border-radius: var(--radius-card) var(--radius-card) 0 0;
+}
 .swipeWrapper.last {
   border-bottom: none;
+  border-radius: 0 0 var(--radius-card) var(--radius-card);
+}
+.swipeWrapper:first-child.last {
+  border-radius: var(--radius-card);
 }
 
 .deleteBtn {
   position: absolute;
-  inset: 0 2px 0 0;
+  inset: 1px 2px 1px 0;
   background: oklch(0.55 0.19 30);
   color: #fff;
   border: none;
