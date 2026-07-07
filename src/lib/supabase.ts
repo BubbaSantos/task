@@ -6,10 +6,9 @@ export const supabase = createClient(
   import.meta.env.VITE_SUPABASE_ANON_KEY as string,
 );
 
-// ── DB row shape ────────────────────────────────────────────────────────────
 interface TaskRow {
   id: string;
-  user_id: string;
+  task_code: string;
   title: string;
   category_id: string;
   due_date: string | null;
@@ -18,21 +17,21 @@ interface TaskRow {
   created_at: string;
 }
 
-function toTask(row: TaskRow): Task {
+export function rowToTask(row: Record<string, unknown>): Task {
   return {
-    id: row.id,
-    title: row.title,
-    categoryId: row.category_id,
-    dueDate: row.due_date,
-    notes: row.notes,
-    completed: row.completed,
+    id: row.id as string,
+    title: row.title as string,
+    categoryId: row.category_id as string,
+    dueDate: (row.due_date ?? null) as string | null,
+    notes: (row.notes ?? '') as string,
+    completed: row.completed as boolean,
   };
 }
 
-function toRow(task: Task, userId: string): Omit<TaskRow, 'created_at'> {
+function toRow(task: Task, code: string): Omit<TaskRow, 'created_at'> {
   return {
     id: task.id,
-    user_id: userId,
+    task_code: code,
     title: task.title,
     category_id: task.categoryId,
     due_date: task.dueDate,
@@ -41,25 +40,20 @@ function toRow(task: Task, userId: string): Omit<TaskRow, 'created_at'> {
   };
 }
 
-// ── CRUD ────────────────────────────────────────────────────────────────────
-export async function dbFetchTasks(userId: string): Promise<Task[]> {
+export async function dbFetchTasks(code: string): Promise<Task[]> {
   const { data, error } = await supabase
     .from('todo_tasks')
     .select('*')
-    .eq('user_id', userId)
+    .eq('task_code', code)
     .order('created_at', { ascending: true });
   if (error) throw error;
-  return (data as TaskRow[]).map(toTask);
+  return (data as TaskRow[]).map(r => rowToTask(r as unknown as Record<string, unknown>));
 }
 
-export async function dbUpsertTask(task: Task, userId: string): Promise<void> {
-  const { error } = await supabase.from('todo_tasks').upsert(toRow(task, userId));
-  if (error) throw error;
-}
-
-export async function dbUpsertTasks(tasks: Task[], userId: string): Promise<void> {
-  if (!tasks.length) return;
-  const { error } = await supabase.from('todo_tasks').upsert(tasks.map(t => toRow(t, userId)));
+export async function dbUpsertTask(task: Task, code: string): Promise<void> {
+  const { error } = await supabase
+    .from('todo_tasks')
+    .upsert(toRow(task, code), { onConflict: 'id' });
   if (error) throw error;
 }
 

@@ -100,3 +100,69 @@
   transform: scale(0.94);
   box-shadow: 0 2px 8px oklch(0.5 0.14 260 / 0.3);
 }
+
+/* ── Settings popover ──────────────────────────────────────────────────── */
+.settings-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 19;
+}
+
+.settings-popover {
+  position: absolute;
+  top: 52px;
+  right: 16px;
+  background: var(--surface);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.14);
+  z-index: 20;
+  min-width: 210px;
+  overflow: hidden;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  gap: 16px;
+}
+
+.settings-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.settings-value {
+  font-size: 14px;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.settings-code-btn {
+  background: var(--accent-tint);
+  border: none;
+  border-radius: 8px;
+  padding: 5px 10px;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--accent);
+  cursor: pointer;
+  letter-spacing: 0.08em;
+}
+
+.settings-leave-btn {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 12px 16px;
+  background: none;
+  border: none;
+  border-top: 1px solid var(--hairline);
+  color: oklch(0.55 0.19 30);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  cursor: pointer;
+}

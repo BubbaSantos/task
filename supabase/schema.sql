@@ -1,8 +1,11 @@
 -- Run this in the Supabase SQL editor (Dashboard → SQL editor → New query)
+-- Drop old auth-based table if it exists
+drop table if exists public.todo_tasks;
 
+-- Code-based table: anyone who knows the task_code can read/write
 create table public.todo_tasks (
   id           text        primary key,
-  user_id      uuid        not null references auth.users(id) on delete cascade,
+  task_code    text        not null,
   title        text        not null,
   category_id  text        not null default 'personal',
   due_date     date,
@@ -11,12 +14,14 @@ create table public.todo_tasks (
   created_at   timestamptz not null default now()
 );
 
--- Each user can only read/write their own rows
+create index todo_tasks_code_idx on public.todo_tasks (task_code);
+
 alter table public.todo_tasks enable row level security;
 
-create policy "users manage their own todo_tasks"
+-- Anon key can read/write any row; code acts as the shared secret
+create policy "code-based access"
   on public.todo_tasks
   for all
-  to authenticated
-  using  (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
+  to anon
+  using (true)
+  with check (true);
