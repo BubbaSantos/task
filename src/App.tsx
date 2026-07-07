@@ -316,7 +316,7 @@ export default function App() {
           'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
           'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
         },
-        body: JSON.stringify({ transcript: text, today, instructions: parseInstructions }),
+        body: JSON.stringify({ transcript: text, today, instructions: parseInstructions, knownTags }),
       });
       const payload = await res.json();
       if (res.ok && payload.title) {
