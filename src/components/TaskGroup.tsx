@@ -8,6 +8,7 @@ const BUCKET_LABELS: Record<DateBucket, string> = {
   tomorrow: 'Tomorrow',
   upcoming: 'Upcoming',
   none: 'No date',
+  completed: 'Completed',
 };
 
 interface Props {

@@ -83,6 +83,7 @@ function setCached(code: string, tasks: Task[]) {
 }
 
 const BUCKET_ORDER = ['overdue', 'today', 'tomorrow', 'upcoming', 'none'] as const;
+const ALL_BUCKETS = [...BUCKET_ORDER, 'completed'] as const;
 
 interface ParsedTask { title: string; categoryId: string; dueDate: string | null; tags: string[]; notes: string; }
 
@@ -452,9 +453,11 @@ export default function App() {
     ? tasks.filter(t => t.categoryId === activeCategoryFilter)
     : tasks;
 
-  const grouped = Object.fromEntries(
-    BUCKET_ORDER.map(b => [b, filtered.filter(t => getDateBucket(t.dueDate) === b)])
-  ) as Record<string, Task[]>;
+  const incomplete = filtered.filter(t => !t.completed);
+  const grouped = {
+    ...Object.fromEntries(BUCKET_ORDER.map(b => [b, incomplete.filter(t => getDateBucket(t.dueDate) === b)])),
+    completed: filtered.filter(t => t.completed),
+  } as Record<string, Task[]>;
 
   const code = codeRef.current;
   const userName = nameRef.current;
@@ -504,7 +507,7 @@ export default function App() {
       </div>
 
       <div className="task-scroll">
-        {BUCKET_ORDER.map(bucket => (
+        {ALL_BUCKETS.map(bucket => (
           <TaskGroup
             key={bucket}
             bucket={bucket}
@@ -515,7 +518,7 @@ export default function App() {
             onDelete={handleDeleteById}
           />
         ))}
-        {filtered.length === 0 && (
+        {incomplete.length === 0 && grouped.completed?.length === 0 && (
           <div className="empty-state">
             No tasks here.{' '}
             <button className="empty-add" onClick={() => setTaskSheet({})}>Add one?</button>

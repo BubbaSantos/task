@@ -43,16 +43,22 @@
   user-select: none;
   will-change: transform;
   overscroll-behavior-x: none;
+  cursor: pointer;
+  transition: background 200ms;
 }
 .row.animate {
   transition: transform 0.25s ease;
 }
+.row.rowPending {
+  background: oklch(from var(--accent) l c h / 0.06);
+}
 
+/* ── Checkbox ── */
 .checkWrap {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
   flex-shrink: 0;
   margin-top: 2px;
 }
@@ -63,92 +69,81 @@
   border-radius: 50%;
   border: 2px solid var(--hairline);
   background: transparent;
-  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0;
   position: relative;
-  transition: background 150ms, border-color 150ms;
+  transition: background 200ms, border-color 200ms;
+  pointer-events: none;
 }
 .checkbox.checked {
   background: var(--accent);
   border-color: var(--accent);
 }
-.checkbox.pending {
-  border-color: var(--accent);
-  border-style: dashed;
-  animation: pendingPulse 0.9s ease-in-out infinite;
-}
 
-@keyframes pendingPulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.45; }
-}
-
-/* SVG countdown ring drawn over the pending checkbox */
-.countdownRing {
+/* ── Ring overlay ── */
+.ring {
   position: absolute;
-  inset: -2px;
-  width: calc(100% + 4px);
-  height: calc(100% + 4px);
-  border-radius: 50%;
-  pointer-events: none;
+  inset: -3px;
+  width: calc(100% + 6px);
+  height: calc(100% + 6px);
   transform: rotate(-90deg);
+  pointer-events: none;
+  border-radius: 50%;
+  overflow: visible;
 }
-.countdownRing circle {
+
+.ring circle {
   fill: none;
   stroke: var(--accent);
-  stroke-width: 2;
-  stroke-dasharray: 56.5; /* 2π × 9 */
-  stroke-dashoffset: 56.5;
+  stroke-width: 2.2;
   stroke-linecap: round;
-  animation: countdown 2.5s linear forwards;
+  /* circumference = 2π × 10 ≈ 62.83 */
+  stroke-dasharray: 62.83;
 }
 
-@keyframes countdown {
-  from { stroke-dashoffset: 0; }
-  to   { stroke-dashoffset: 56.5; }
+/* Idle (pending) — just a faint static arc to show it's armed */
+.ringIdle {
+  stroke-dashoffset: 62.83;
+  stroke-opacity: 0.35;
+  animation: ringPulse 1s ease-in-out infinite;
 }
 
+@keyframes ringPulse {
+  0%, 100% { stroke-opacity: 0.25; }
+  50%       { stroke-opacity: 0.65; }
+}
+
+/* Completing — ring sweeps from empty to full */
+.ringFill {
+  stroke-dashoffset: 62.83;
+  animation: ringFill 0.65s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes ringFill {
+  from { stroke-dashoffset: 62.83; }
+  to   { stroke-dashoffset: 0; }
+}
+
+/* "Tap to confirm" label */
 .tapAgain {
   font-size: 9px;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--accent);
   white-space: nowrap;
-  letter-spacing: 0.01em;
-  animation: fadeIn 150ms ease-out;
+  letter-spacing: 0.02em;
+  animation: labelIn 150ms ease-out;
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(-2px); }
+@keyframes labelIn {
+  from { opacity: 0; transform: translateY(-3px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
+/* ── Content ── */
 .content {
   flex: 1;
   min-width: 0;
-}
-
-.viewBtn {
-  flex-shrink: 0;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  border: none;
-  background: transparent;
-  color: var(--text-tertiary);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  margin-top: 1px;
-  transition: color 150ms, background 150ms;
-}
-.viewBtn:active {
-  background: var(--hairline);
-  color: var(--text-secondary);
 }
 
 .title {
@@ -207,4 +202,26 @@
   border-radius: var(--radius-pill);
   padding: 1px 7px;
   white-space: nowrap;
+}
+
+/* ── Info button ── */
+.infoBtn {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  margin-top: 1px;
+  transition: color 150ms, background 150ms;
+}
+.infoBtn:active {
+  background: var(--hairline);
+  color: var(--text-secondary);
 }

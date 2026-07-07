@@ -7,6 +7,9 @@ import styles from './TaskRow.module.css';
 const SNAP = 80;
 const AUTO = 220;
 const PENDING_MS = 2500;
+const FILL_MS = 650;
+
+type RowState = 'idle' | 'pending' | 'completing';
 
 interface Props {
   task: Task;
@@ -23,18 +26,23 @@ export function TaskRow({ task, category, isLast, onToggle, onOpen, onDelete }: 
 
   const [tx, _setTx] = useState(0);
   const [animate, setAnimate] = useState(false);
-  const [pendingCheck, setPendingCheck] = useState(false);
+  const [rowState, setRowState] = useState<RowState>('idle');
+
   const txRef = useRef(0);
   const rowRef = useRef<HTMLDivElement>(null);
   const pendingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onDeleteRef = useRef(onDelete);
+  const onToggleRef = useRef(onToggle);
   useEffect(() => { onDeleteRef.current = onDelete; }, [onDelete]);
+  useEffect(() => { onToggleRef.current = onToggle; }, [onToggle]);
 
-  // Clear pending state on unmount
-  useEffect(() => () => { if (pendingTimerRef.current) clearTimeout(pendingTimerRef.current); }, []);
+  useEffect(() => () => {
+    if (pendingTimerRef.current) clearTimeout(pendingTimerRef.current);
+  }, []);
 
   function setTx(v: number) { txRef.current = v; _setTx(v); }
 
+  // Swipe gesture
   useEffect(() => {
     const el = rowRef.current;
     if (!el) return;
@@ -80,27 +88,31 @@ export function TaskRow({ task, category, isLast, onToggle, onOpen, onDelete }: 
     };
   }, [task.id]);
 
-  function handleCheckboxClick(e: React.MouseEvent) {
-    e.stopPropagation();
+  function handleRowClick() {
+    // Close swipe if open
+    if (txRef.current !== 0) { setAnimate(true); setTx(0); return; }
+    // Ignore clicks while completing animation plays
+    if (rowState === 'completing') return;
 
-    // Un-checking needs no confirmation
+    // Un-checking completed task is instant
     if (task.completed) {
-      onToggle(task.id);
+      onToggleRef.current(task.id);
       return;
     }
 
-    if (pendingCheck) {
-      if (pendingTimerRef.current) clearTimeout(pendingTimerRef.current);
-      setPendingCheck(false);
-      onToggle(task.id);
+    if (rowState === 'idle') {
+      // First tap — arm it
+      setRowState('pending');
+      pendingTimerRef.current = setTimeout(() => setRowState('idle'), PENDING_MS);
     } else {
-      setPendingCheck(true);
-      pendingTimerRef.current = setTimeout(() => setPendingCheck(false), PENDING_MS);
+      // Second tap — confirm: play fill animation then complete
+      if (pendingTimerRef.current) clearTimeout(pendingTimerRef.current);
+      setRowState('completing');
+      setTimeout(() => {
+        setRowState('idle');
+        onToggleRef.current(task.id);
+      }, FILL_MS);
     }
-  }
-
-  function handleRowClick() {
-    if (txRef.current !== 0) { setAnimate(true); setTx(0); }
   }
 
   function handleDeleteClick() {
@@ -109,6 +121,8 @@ export function TaskRow({ task, category, isLast, onToggle, onOpen, onDelete }: 
     setTimeout(() => onDeleteRef.current(task.id), 260);
   }
 
+  const showRing = rowState === 'pending' || rowState === 'completing';
+
   return (
     <div className={`${styles.swipeWrapper} ${isLast ? styles.last : ''}`}>
       <button className={styles.deleteBtn} onClick={handleDeleteClick} aria-label="Delete task">
@@ -116,29 +130,32 @@ export function TaskRow({ task, category, isLast, onToggle, onOpen, onDelete }: 
       </button>
       <div
         ref={rowRef}
-        className={`${styles.row} ${animate ? styles.animate : ''}`}
+        className={`${styles.row} ${animate ? styles.animate : ''} ${rowState === 'pending' ? styles.rowPending : ''}`}
         style={{ transform: `translateX(${tx}px)` }}
         onClick={handleRowClick}
       >
+        {/* Checkbox */}
         <div className={styles.checkWrap}>
-          <button
-            className={`${styles.checkbox} ${task.completed ? styles.checked : ''} ${pendingCheck ? styles.pending : ''}`}
-            style={task.completed || pendingCheck ? {} : { borderColor: category?.colour }}
-            onClick={handleCheckboxClick}
-            aria-label={task.completed ? 'Mark incomplete' : 'Mark complete'}
+          <div
+            className={`${styles.checkbox} ${task.completed ? styles.checked : ''}`}
+            style={task.completed || showRing ? {} : { borderColor: category?.colour }}
           >
             {task.completed && <span className="msym" style={{ fontSize: 14, color: '#fff' }}>check</span>}
-            {pendingCheck && !task.completed && (
-              <svg className={styles.countdownRing} viewBox="0 0 22 22">
-                <circle cx="11" cy="11" r="9" />
+            {showRing && !task.completed && (
+              <svg className={styles.ring} viewBox="0 0 24 24" aria-hidden>
+                <circle
+                  cx="12" cy="12" r="10"
+                  className={rowState === 'completing' ? styles.ringFill : styles.ringIdle}
+                />
               </svg>
             )}
-          </button>
-          {pendingCheck && (
-            <span className={styles.tapAgain}>Tap again</span>
+          </div>
+          {rowState === 'pending' && (
+            <span className={styles.tapAgain}>Tap to confirm</span>
           )}
         </div>
 
+        {/* Content */}
         <div className={styles.content}>
           <div className={`${styles.title} ${task.completed ? styles.completed : ''}`}>
             {task.title}
@@ -155,9 +172,7 @@ export function TaskRow({ task, category, isLast, onToggle, onOpen, onDelete }: 
                 {dateLabel}
               </span>
             )}
-            {task.notes && (
-              <span className={`msym ${styles.notesIcon}`}>notes</span>
-            )}
+            {task.notes && <span className={`msym ${styles.notesIcon}`}>notes</span>}
             {task.tags?.map(t => {
               const { bg, text } = tagColor(t);
               return (
@@ -167,10 +182,11 @@ export function TaskRow({ task, category, isLast, onToggle, onOpen, onDelete }: 
           </div>
         </div>
 
+        {/* Info button */}
         <button
-          className={styles.viewBtn}
+          className={styles.infoBtn}
           onClick={e => { e.stopPropagation(); onOpen(task); }}
-          aria-label="View task"
+          aria-label="Edit task"
         >
           <span className="msym" style={{ fontSize: 19 }}>info</span>
         </button>

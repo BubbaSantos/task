@@ -16,4 +16,4 @@ export interface Category {
 
 export type VoiceCaptureState = 'idle' | 'listening' | 'transcribing' | 'parsing';
 
-export type DateBucket = 'overdue' | 'today' | 'tomorrow' | 'upcoming' | 'none';
+export type DateBucket = 'overdue' | 'today' | 'tomorrow' | 'upcoming' | 'none' | 'completed';
