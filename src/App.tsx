@@ -426,6 +426,23 @@ export default function App() {
 
   const handleOpenTask = useCallback((task: Task) => setTaskSheet({ task }), []);
 
+  // ── Visibility / foreground refetch (iOS Safari WebSocket recovery) ──────
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      const code = codeRef.current;
+      if (!code || !navigator.onLine) return;
+      // Re-fetch from Supabase immediately on foreground
+      dbFetchTasks(code).then(remote => {
+        if (remote.length > 0) setTasks(remote);
+      }).catch(() => {});
+      // Ask peers for anything they have that we might have missed
+      channelRef.current?.send({ type: 'broadcast', event: 'sync-request', payload: {} });
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Category CRUD ─────────────────────────────────────────────────────────
   function handleAddCategory() {
     const name = newCatName.trim();
