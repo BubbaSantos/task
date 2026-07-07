@@ -88,10 +88,25 @@ export function TaskRow({ task, category, isLast, onToggle, onOpen, onDelete }: 
     };
   }, [task.id]);
 
+  function triggerComplete() {
+    if (pendingTimerRef.current) clearTimeout(pendingTimerRef.current);
+    setRowState('completing');
+    setTimeout(() => {
+      setRowState('idle');
+      onToggleRef.current(task.id);
+    }, FILL_MS);
+  }
+
+  function handleCheckWrapClick(e: React.MouseEvent) {
+    e.stopPropagation();
+    if (rowState === 'completing') return;
+    if (task.completed) { onToggleRef.current(task.id); return; }
+    triggerComplete();
+  }
+
   function handleRowClick() {
     // Close swipe if open
     if (txRef.current !== 0) { setAnimate(true); setTx(0); return; }
-    // Ignore clicks while completing animation plays
     if (rowState === 'completing') return;
 
     // Un-checking completed task is instant
@@ -101,17 +116,10 @@ export function TaskRow({ task, category, isLast, onToggle, onOpen, onDelete }: 
     }
 
     if (rowState === 'idle') {
-      // First tap — arm it
       setRowState('pending');
       pendingTimerRef.current = setTimeout(() => setRowState('idle'), PENDING_MS);
     } else {
-      // Second tap — confirm: play fill animation then complete
-      if (pendingTimerRef.current) clearTimeout(pendingTimerRef.current);
-      setRowState('completing');
-      setTimeout(() => {
-        setRowState('idle');
-        onToggleRef.current(task.id);
-      }, FILL_MS);
+      triggerComplete();
     }
   }
 
@@ -134,8 +142,8 @@ export function TaskRow({ task, category, isLast, onToggle, onOpen, onDelete }: 
         style={{ transform: `translateX(${tx}px)` }}
         onClick={handleRowClick}
       >
-        {/* Checkbox */}
-        <div className={styles.checkWrap}>
+        {/* Checkbox — single tap completes immediately */}
+        <div className={styles.checkWrap} onClick={handleCheckWrapClick}>
           <div
             className={`${styles.checkbox} ${task.completed ? styles.checked : ''}`}
             style={task.completed || showRing ? {} : { borderColor: category?.colour }}
