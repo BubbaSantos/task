@@ -3,6 +3,7 @@ import type { Task, VoiceCaptureState } from './types';
 import { DEFAULT_CATEGORIES } from './data';
 import { getDateBucket } from './utils/dates';
 import { supabase, rowToTask, dbFetchTasks, dbUpsertTask, dbDeleteTask } from './lib/supabase';
+import { tagColor } from './utils/tagColor';
 import { CategoryFilter } from './components/CategoryFilter';
 import { TaskGroup } from './components/TaskGroup';
 import { VoiceCapture } from './components/VoiceCapture';
@@ -421,7 +422,7 @@ export default function App() {
               <div className="manage-tag-list">
                 {knownTags.map(tag => (
                   <div key={tag} className="manage-tag-row">
-                    <span className="manage-tag-name">#{tag}</span>
+                    <span className="manage-tag-name" style={{ color: tagColor(tag).text }}>#{tag}</span>
                     <button className="manage-tag-delete" onClick={() => {
                       const next = knownTags.filter(t => t !== tag);
                       setKnownTags(next);

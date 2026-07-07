@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Task, Category } from '../types';
+import { tagColor } from '../utils/tagColor';
 import styles from './TaskSheet.module.css';
 
 interface TaskDraft {
@@ -150,14 +151,17 @@ export function TaskSheet({ task, prefillTitle, categories, knownTags, onSave, o
         <div className={styles.field}>
           <span className={styles.fieldLabel}>Tags</span>
           <div className={styles.tagArea}>
-            {tags.map(t => (
-              <span key={t} className={styles.tagChip}>
-                #{t}
-                <button className={styles.tagRemove} onClick={() => removeTag(t)} aria-label={`Remove ${t}`}>
-                  <span className="msym" style={{ fontSize: 14 }}>close</span>
-                </button>
-              </span>
-            ))}
+            {tags.map(t => {
+              const { bg, text } = tagColor(t);
+              return (
+                <span key={t} className={styles.tagChip} style={{ background: bg, color: text }}>
+                  #{t}
+                  <button className={styles.tagRemove} onClick={() => removeTag(t)} aria-label={`Remove ${t}`} style={{ color: text }}>
+                    <span className="msym" style={{ fontSize: 14 }}>close</span>
+                  </button>
+                </span>
+              );
+            })}
             <input
               className={styles.tagInput}
               type="text"
@@ -172,9 +176,15 @@ export function TaskSheet({ task, prefillTitle, categories, knownTags, onSave, o
           </div>
           {suggestions.length > 0 && (
             <div className={styles.tagSuggestions}>
-              {suggestions.map(t => (
-                <button key={t} className={styles.tagSuggestion} onClick={() => addTag(t)}>#{t}</button>
-              ))}
+              {suggestions.map(t => {
+                const { bg, text } = tagColor(t);
+                return (
+                  <button key={t} className={styles.tagSuggestion} onClick={() => addTag(t)}
+                    style={{ background: bg, color: text, borderColor: 'transparent' }}>
+                    #{t}
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>

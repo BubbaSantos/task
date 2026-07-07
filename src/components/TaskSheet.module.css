@@ -180,8 +180,6 @@
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  background: var(--accent-tint);
-  color: var(--accent);
   border-radius: var(--radius-pill);
   padding: 3px 8px 3px 10px;
   font-size: 13px;
@@ -196,7 +194,6 @@
   border: none;
   padding: 0;
   cursor: pointer;
-  color: var(--accent);
   opacity: 0.7;
   line-height: 1;
 }

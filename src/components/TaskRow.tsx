@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Task, Category, DateBucket } from '../types';
 import { getDateBucket, formatDueDate } from '../utils/dates';
+import { tagColor } from '../utils/tagColor';
 import styles from './TaskRow.module.css';
 
 const SNAP = 80;
@@ -122,9 +123,12 @@ export function TaskRow({ task, category, isLast, onToggle, onOpen, onDelete }: 
             {task.notes && (
               <span className={`msym ${styles.notesIcon}`}>notes</span>
             )}
-            {task.tags?.map(t => (
-              <span key={t} className={styles.tagChip}>#{t}</span>
-            ))}
+            {task.tags?.map(t => {
+              const { bg, text } = tagColor(t);
+              return (
+                <span key={t} className={styles.tagChip} style={{ background: bg, color: text }}>#{t}</span>
+              );
+            })}
           </div>
         </div>
       </div>
