@@ -245,6 +245,21 @@ export default function App() {
           for (const t of incoming) dbUpsertTask(t, code).catch(() => {});
         }
       })
+      .on('broadcast', { event: 'task-change' }, () => {
+        // Bar mutated a task — fetch immediately so phone updates without waiting for poll
+        if (navigator.onLine) {
+          dbFetchTasks(code).then(remote => {
+            if (!remote.length) return;
+            setTasksRaw(prev => {
+              const remoteIds = new Set(remote.map(t => t.id));
+              const localOnly = prev.filter(t => !remoteIds.has(t.id));
+              const next = [...remote, ...localOnly];
+              if (JSON.stringify(next) === JSON.stringify(prev)) return prev;
+              tasksRef.current = next; setCached(code, next); return next;
+            });
+          }).catch(() => {});
+        }
+      })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'todo_tasks' }, (payload) => {
         const newRow = (payload.new ?? {}) as Record<string, unknown>;
         const oldRow = (payload.old ?? {}) as Record<string, unknown>;
@@ -426,21 +441,38 @@ export default function App() {
 
   const handleOpenTask = useCallback((task: Task) => setTaskSheet({ task }), []);
 
-  // ── Visibility / foreground refetch (iOS Safari WebSocket recovery) ──────
+  // ── Visibility / foreground refetch + background poll ────────────────────
   useEffect(() => {
+    const refetch = () => {
+      const code = codeRef.current;
+      if (!code || !navigator.onLine || document.visibilityState !== 'visible') return;
+      dbFetchTasks(code).then(remote => {
+        if (!remote.length) return;
+        setTasksRaw(prev => {
+          const remoteIds = new Set(remote.map(t => t.id));
+          const localOnly = prev.filter(t => !remoteIds.has(t.id));
+          const next = [...remote, ...localOnly];
+          if (JSON.stringify(next) === JSON.stringify(prev)) return prev;
+          tasksRef.current = next;
+          setCached(code, next);
+          return next;
+        });
+      }).catch(() => {});
+    };
+
     const onVisible = () => {
       if (document.visibilityState !== 'visible') return;
-      const code = codeRef.current;
-      if (!code || !navigator.onLine) return;
-      // Re-fetch from Supabase immediately on foreground
-      dbFetchTasks(code).then(remote => {
-        if (remote.length > 0) setTasks(remote);
-      }).catch(() => {});
-      // Ask peers for anything they have that we might have missed
+      refetch();
       channelRef.current?.send({ type: 'broadcast', event: 'sync-request', payload: {} });
     };
+
     document.addEventListener('visibilitychange', onVisible);
-    return () => document.removeEventListener('visibilitychange', onVisible);
+    // Poll every 5s so bar-created tasks appear on phone without WebSocket dependency
+    const interval = setInterval(refetch, 5000);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      clearInterval(interval);
+    };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Category CRUD ─────────────────────────────────────────────────────────
