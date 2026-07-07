@@ -5,6 +5,7 @@ export interface Task {
   dueDate: string | null; // ISO date string YYYY-MM-DD
   notes: string;
   completed: boolean;
+  tags: string[];
 }
 
 export interface Category {

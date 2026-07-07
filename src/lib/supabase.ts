@@ -14,6 +14,7 @@ interface TaskRow {
   due_date: string | null;
   notes: string;
   completed: boolean;
+  tags: string[];
   created_at: string;
 }
 
@@ -25,6 +26,7 @@ export function rowToTask(row: Record<string, unknown>): Task {
     dueDate: (row.due_date ?? null) as string | null,
     notes: (row.notes ?? '') as string,
     completed: row.completed as boolean,
+    tags: (row.tags as string[]) ?? [],
   };
 }
 
@@ -37,6 +39,7 @@ function toRow(task: Task, code: string): Omit<TaskRow, 'created_at'> {
     due_date: task.dueDate,
     notes: task.notes,
     completed: task.completed,
+    tags: task.tags,
   };
 }
 

@@ -11,6 +11,7 @@ create table public.todo_tasks (
   due_date     date,
   notes        text        not null default '',
   completed    boolean     not null default false,
+  tags         text[]      not null default '{}',
   created_at   timestamptz not null default now()
 );
 

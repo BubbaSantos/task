@@ -165,6 +165,75 @@
 }
 .notesInput::placeholder { color: var(--text-tertiary); }
 
+.tagArea {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  background: var(--hairline);
+  border-radius: 12px;
+  padding: 8px 10px;
+  min-height: 44px;
+}
+
+.tagChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: var(--accent-tint);
+  color: var(--accent);
+  border-radius: var(--radius-pill);
+  padding: 3px 8px 3px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.tagRemove {
+  display: flex;
+  align-items: center;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--accent);
+  opacity: 0.7;
+  line-height: 1;
+}
+
+.tagInput {
+  flex: 1;
+  min-width: 80px;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: var(--font-ui);
+  font-size: 16px;
+  color: var(--text-primary);
+  padding: 0;
+}
+.tagInput::placeholder { color: var(--text-tertiary); }
+
+.tagSuggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.tagSuggestion {
+  background: var(--surface);
+  border: 1.5px solid var(--hairline);
+  border-radius: var(--radius-pill);
+  padding: 4px 12px;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.tagSuggestion:active { background: var(--hairline); }
+
 .bottomRow {
   display: flex;
   align-items: center;

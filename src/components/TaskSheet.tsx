@@ -9,23 +9,27 @@ interface TaskDraft {
   dueDate: string | null;
   notes: string;
   completed: boolean;
+  tags: string[];
 }
 
 interface Props {
   task?: Task;           // undefined = new task
   prefillTitle?: string; // populated from voice
   categories: Category[];
+  knownTags: string[];
   onSave: (draft: TaskDraft) => void;
   onDelete?: () => void;
   onCancel: () => void;
 }
 
-export function TaskSheet({ task, prefillTitle, categories, onSave, onDelete, onCancel }: Props) {
+export function TaskSheet({ task, prefillTitle, categories, knownTags, onSave, onDelete, onCancel }: Props) {
   const today = new Date().toISOString().slice(0, 10);
   const [title, setTitle] = useState(task?.title ?? prefillTitle ?? '');
   const [categoryId, setCategoryId] = useState(task?.categoryId ?? categories[0]?.id ?? '');
   const [dueDate, setDueDate] = useState<string | null>(task?.dueDate ?? today);
   const [notes, setNotes] = useState(task?.notes ?? '');
+  const [tags, setTags] = useState<string[]>(task?.tags ?? []);
+  const [tagInput, setTagInput] = useState('');
   const titleRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -34,6 +38,20 @@ export function TaskSheet({ task, prefillTitle, categories, onSave, onDelete, on
     if (!el) return;
     el.selectionStart = el.selectionEnd = el.value.length;
   }, [prefillTitle]);
+
+  function addTag(raw: string) {
+    const t = raw.trim().toLowerCase().replace(/\s+/g, '-');
+    if (t && !tags.includes(t)) setTags(prev => [...prev, t]);
+    setTagInput('');
+  }
+
+  function removeTag(t: string) {
+    setTags(prev => prev.filter(x => x !== t));
+  }
+
+  const suggestions = tagInput
+    ? knownTags.filter(t => t.includes(tagInput.toLowerCase()) && !tags.includes(t))
+    : knownTags.filter(t => !tags.includes(t));
 
   // Auto-grow textarea
   function handleTitleChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
@@ -51,6 +69,7 @@ export function TaskSheet({ task, prefillTitle, categories, onSave, onDelete, on
       dueDate,
       notes,
       completed: task?.completed ?? false,
+      tags,
     });
   }
 
@@ -126,6 +145,38 @@ export function TaskSheet({ task, prefillTitle, categories, onSave, onDelete, on
             onChange={e => setNotes(e.target.value)}
             rows={3}
           />
+        </div>
+
+        <div className={styles.field}>
+          <span className={styles.fieldLabel}>Tags</span>
+          <div className={styles.tagArea}>
+            {tags.map(t => (
+              <span key={t} className={styles.tagChip}>
+                #{t}
+                <button className={styles.tagRemove} onClick={() => removeTag(t)} aria-label={`Remove ${t}`}>
+                  <span className="msym" style={{ fontSize: 14 }}>close</span>
+                </button>
+              </span>
+            ))}
+            <input
+              className={styles.tagInput}
+              type="text"
+              placeholder={tags.length ? 'Add another…' : 'Add a tag…'}
+              value={tagInput}
+              onChange={e => setTagInput(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); addTag(tagInput); }
+                if (e.key === 'Backspace' && !tagInput && tags.length) removeTag(tags[tags.length - 1]);
+              }}
+            />
+          </div>
+          {suggestions.length > 0 && (
+            <div className={styles.tagSuggestions}>
+              {suggestions.map(t => (
+                <button key={t} className={styles.tagSuggestion} onClick={() => addTag(t)}>#{t}</button>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className={styles.bottomRow}>

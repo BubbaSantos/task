@@ -123,3 +123,13 @@
   font-size: 15px;
   color: var(--text-tertiary);
 }
+
+.tagChip {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--accent-tint);
+  border-radius: var(--radius-pill);
+  padding: 1px 7px;
+  white-space: nowrap;
+}

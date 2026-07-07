@@ -15,7 +15,21 @@ import './App.css';
 const CODE_KEY = 'task-code';
 const NAME_KEY = 'task-username';
 const cacheKey = (c: string) => `task-cache-${c}`;
+const tagsKey = (c: string) => `task-tags-${c}`;
 const QUEUE_KEY = 'task-queue';
+
+// ── Known tags ────────────────────────────────────────────────────────────────
+function getKnownTags(code: string): string[] {
+  try { return JSON.parse(localStorage.getItem(tagsKey(code)) || '[]'); } catch { return []; }
+}
+function saveKnownTags(code: string, tags: string[]) {
+  try { localStorage.setItem(tagsKey(code), JSON.stringify(tags)); } catch {}
+}
+function mergeKnownTags(code: string, newTags: string[]): string[] {
+  const merged = Array.from(new Set([...getKnownTags(code), ...newTags]));
+  saveKnownTags(code, merged);
+  return merged;
+}
 
 // ── Offline queue ─────────────────────────────────────────────────────────────
 type QueueOp =
@@ -61,6 +75,8 @@ export default function App() {
   const [recordingElapsedMs, setRecordingElapsedMs] = useState(0);
   const [taskSheet, setTaskSheet] = useState<{ task?: Task; prefillTitle?: string } | null>(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [showManageTags, setShowManageTags] = useState(false);
+  const [knownTags, setKnownTags] = useState<string[]>([]);
   const [codeCopied, setCodeCopied] = useState(false);
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -123,6 +139,7 @@ export default function App() {
       }
     }
 
+    setKnownTags(getKnownTags(code));
     setView('ready');
 
     channelRef.current = supabase
@@ -205,6 +222,7 @@ export default function App() {
     if (code) localStorage.removeItem(cacheKey(code));
     codeRef.current = '';
     setTasks([]);
+    setKnownTags([]);
     setShowSettings(false);
     setView('setup');
   }
@@ -230,10 +248,11 @@ export default function App() {
     }
   }, []);
 
-  function handleTaskSheetSave(draft: { id?: string; title: string; categoryId: string; dueDate: string | null; notes: string; completed: boolean }) {
+  function handleTaskSheetSave(draft: { id?: string; title: string; categoryId: string; dueDate: string | null; notes: string; completed: boolean; tags: string[] }) {
     const task: Task = draft.id
       ? { ...draft, id: draft.id }
       : { ...draft, id: crypto.randomUUID() };
+    if (task.tags.length) setKnownTags(mergeKnownTags(codeRef.current, task.tags));
     const next = draft.id
       ? tasksRef.current.map(t => t.id === task.id ? task : t)
       : [...tasksRef.current, task];
@@ -336,6 +355,7 @@ export default function App() {
               <span className="settings-value">{userName}</span>
             </div>
           )}
+          <button className="settings-action-btn" onClick={() => { setShowSettings(false); setShowManageTags(true); }}>Manage tags</button>
           <button className="settings-leave-btn" onClick={handleLeave}>Leave this list</button>
         </div>
       )}
@@ -386,11 +406,43 @@ export default function App() {
         onCancel={() => setVoiceCaptureState('idle')}
       />
 
+      {showManageTags && (
+        <div className="manage-overlay" onClick={e => e.target === e.currentTarget && setShowManageTags(false)}>
+          <div className="manage-sheet">
+            <div className="manage-header">
+              <span className="manage-title">Manage tags</span>
+              <button className="header-icon-btn" onClick={() => setShowManageTags(false)} aria-label="Close">
+                <span className="msym" style={{ fontSize: 20 }}>close</span>
+              </button>
+            </div>
+            {knownTags.length === 0 ? (
+              <p className="manage-empty">No tags yet. Add them when creating or editing a task.</p>
+            ) : (
+              <div className="manage-tag-list">
+                {knownTags.map(tag => (
+                  <div key={tag} className="manage-tag-row">
+                    <span className="manage-tag-name">#{tag}</span>
+                    <button className="manage-tag-delete" onClick={() => {
+                      const next = knownTags.filter(t => t !== tag);
+                      setKnownTags(next);
+                      saveKnownTags(codeRef.current, next);
+                    }} aria-label={`Delete ${tag}`}>
+                      <span className="msym" style={{ fontSize: 18 }}>delete</span>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {taskSheet && (
         <TaskSheet
           task={taskSheet.task}
           prefillTitle={taskSheet.prefillTitle}
           categories={DEFAULT_CATEGORIES}
+          knownTags={knownTags}
           onSave={handleTaskSheetSave}
           onDelete={taskSheet.task ? handleTaskDelete : undefined}
           onCancel={() => setTaskSheet(null)}

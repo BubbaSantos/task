@@ -122,6 +122,9 @@ export function TaskRow({ task, category, isLast, onToggle, onOpen, onDelete }: 
             {task.notes && (
               <span className={`msym ${styles.notesIcon}`}>notes</span>
             )}
+            {task.tags?.map(t => (
+              <span key={t} className={styles.tagChip}>#{t}</span>
+            ))}
           </div>
         </div>
       </div>
