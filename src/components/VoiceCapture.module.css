@@ -110,6 +110,20 @@
   transition: height 80ms ease-out;
 }
 
+.liveTranscript {
+  width: 100%;
+  min-height: 52px;
+  background: var(--accent-tint);
+  border-radius: var(--radius-card);
+  padding: 12px 14px;
+  font-size: 15px;
+  color: var(--text-primary);
+  line-height: 1.5;
+  word-break: break-word;
+  align-self: stretch;
+  font-style: italic;
+}
+
 .timer {
   font-family: var(--font-mono);
   font-size: 14px;

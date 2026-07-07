@@ -7,15 +7,34 @@ import { TaskGroup } from './components/TaskGroup';
 import { VoiceCapture } from './components/VoiceCapture';
 import './App.css';
 
+const STORAGE_KEY = 'task-app-tasks';
 const BUCKET_ORDER = ['overdue', 'today', 'tomorrow', 'upcoming', 'none'] as const;
 
+function loadTasks(): Task[] {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    return stored ? (JSON.parse(stored) as Task[]) : SEED_TASKS;
+  } catch {
+    return SEED_TASKS;
+  }
+}
+
 export default function App() {
-  const [tasks, setTasks] = useState<Task[]>(SEED_TASKS);
+  const [tasks, setTasksRaw] = useState<Task[]>(loadTasks);
   const [activeCategoryFilter, setActiveCategoryFilter] = useState<string | null>(null);
   const [voiceCaptureState, setVoiceCaptureState] = useState<VoiceCaptureState>('idle');
   const [recordingElapsedMs, setRecordingElapsedMs] = useState(0);
   const [transcriptText, setTranscriptText] = useState('');
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Persist tasks to localStorage on every change
+  function setTasks(updater: Task[] | ((prev: Task[]) => Task[])) {
+    setTasksRaw(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); } catch { /* quota */ }
+      return next;
+    });
+  }
 
   useEffect(() => {
     if (voiceCaptureState === 'listening') {
@@ -31,26 +50,20 @@ export default function App() {
 
   const handleToggle = useCallback((id: string) => {
     setTasks(prev => prev.map(t => t.id === id ? { ...t, completed: !t.completed } : t));
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleFabClick() {
+    setTranscriptText('');
     setVoiceCaptureState('listening');
   }
 
-  function handleStop(_audioBlob: Blob) {
-    setTranscriptText('');
-    setVoiceCaptureState('transcribing');
-    simulateTranscription();
+  function handleTranscriptUpdate(text: string) {
+    setTranscriptText(text);
   }
 
-  function simulateTranscription() {
-    const sample = 'Call back the plumber tomorrow about the kitchen tap.';
-    let i = 0;
-    const interval = setInterval(() => {
-      i += 3;
-      setTranscriptText(sample.slice(0, i));
-      if (i >= sample.length) clearInterval(interval);
-    }, 60);
+  function handleStop(finalText: string) {
+    setTranscriptText(finalText);
+    setVoiceCaptureState('transcribing');
   }
 
   function handleCancel() {
@@ -123,6 +136,7 @@ export default function App() {
         state={voiceCaptureState}
         elapsedMs={recordingElapsedMs}
         transcriptText={transcriptText}
+        onTranscriptUpdate={handleTranscriptUpdate}
         onStop={handleStop}
         onCancel={handleCancel}
         onSave={handleSave}

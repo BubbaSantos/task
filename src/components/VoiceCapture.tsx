@@ -3,82 +3,143 @@ import type { VoiceCaptureState } from '../types';
 import { formatElapsed } from '../utils/dates';
 import styles from './VoiceCapture.module.css';
 
+// Web Speech API types (not in lib.dom.d.ts by default)
+interface SpeechRecognitionEvent extends Event {
+  results: SpeechRecognitionResultList;
+}
+interface SpeechRecognitionErrorEvent extends Event {
+  error: string;
+}
+interface SpeechRecognitionInstance extends EventTarget {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  start(): void;
+  stop(): void;
+  onresult: ((e: SpeechRecognitionEvent) => void) | null;
+  onerror: ((e: SpeechRecognitionErrorEvent) => void) | null;
+  onend: (() => void) | null;
+}
+declare const SpeechRecognition: new () => SpeechRecognitionInstance;
+declare const webkitSpeechRecognition: new () => SpeechRecognitionInstance;
+
+function getSpeechRecognition(): SpeechRecognitionInstance | null {
+  const Ctor = (typeof SpeechRecognition !== 'undefined' && SpeechRecognition)
+    || (typeof webkitSpeechRecognition !== 'undefined' && webkitSpeechRecognition);
+  return Ctor ? new Ctor() : null;
+}
+
 interface Props {
   state: VoiceCaptureState;
   elapsedMs: number;
   transcriptText: string;
-  onStop: (audioBlob: Blob) => void;
+  onTranscriptUpdate: (text: string) => void;
+  onStop: (finalText: string) => void;
   onCancel: () => void;
   onSave: (text: string) => void;
 }
 
-export function VoiceCapture({ state, elapsedMs, transcriptText, onStop, onCancel, onSave }: Props) {
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
+export function VoiceCapture({
+  state, elapsedMs, transcriptText,
+  onTranscriptUpdate, onStop, onCancel, onSave,
+}: Props) {
+  const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
+  const finalTextRef = useRef('');
   const [waveHeights, setWaveHeights] = useState([8, 18, 26, 34, 28, 16, 10, 20]);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animFrameRef = useRef<number>(0);
+  const streamRef = useRef<MediaStream | null>(null);
+  const [unsupported, setUnsupported] = useState(false);
 
-  // Start microphone when listening begins
   useEffect(() => {
     if (state !== 'listening') return;
 
-    let stream: MediaStream;
+    finalTextRef.current = '';
+    onTranscriptUpdate('');
 
-    async function start() {
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        const ctx = new AudioContext();
-        const source = ctx.createMediaStreamSource(stream);
-        const analyser = ctx.createAnalyser();
-        analyser.fftSize = 32;
-        source.connect(analyser);
-        analyserRef.current = analyser;
-
-        const mr = new MediaRecorder(stream);
-        chunksRef.current = [];
-        mr.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data); };
-        mr.start(100);
-        mediaRecorderRef.current = mr;
-
-        function tick() {
-          const data = new Uint8Array(analyser.frequencyBinCount);
-          analyser.getByteFrequencyData(data);
-          const bars = Array.from({ length: 8 }, (_, i) => {
-            const raw = data[Math.floor(i * (data.length / 8))] ?? 0;
-            return Math.max(8, Math.min(34, 8 + (raw / 255) * 26));
-          });
-          setWaveHeights(bars);
-          animFrameRef.current = requestAnimationFrame(tick);
-        }
-        tick();
-      } catch {
-        // microphone denied — stay in listening state with static bars
-      }
+    const recognition = getSpeechRecognition();
+    if (!recognition) {
+      setUnsupported(true);
+      return;
     }
 
-    start();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US';
+
+    recognition.onresult = (e: SpeechRecognitionEvent) => {
+      let interim = '';
+      let final = finalTextRef.current;
+      for (let i = e.results.length - 1; i >= 0; i--) {
+        if (e.results[i].isFinal) {
+          final += e.results[i][0].transcript;
+          finalTextRef.current = final;
+          break;
+        } else {
+          interim = e.results[i][0].transcript;
+        }
+      }
+      onTranscriptUpdate((final + ' ' + interim).trim());
+    };
+
+    recognition.onerror = (e: SpeechRecognitionErrorEvent) => {
+      if (e.error === 'not-allowed') setUnsupported(true);
+    };
+
+    // Auto-restart if recognition ends while still listening (browser timeout)
+    recognition.onend = () => {
+      if (recognitionRef.current === recognition) {
+        try { recognition.start(); } catch { /* already stopped by user */ }
+      }
+    };
+
+    recognitionRef.current = recognition;
+
+    // Waveform visualiser via AudioContext
+    navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+      streamRef.current = stream;
+      const ctx = new AudioContext();
+      const source = ctx.createMediaStreamSource(stream);
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 32;
+      source.connect(analyser);
+      analyserRef.current = analyser;
+
+      function tick() {
+        const data = new Uint8Array(analyser.frequencyBinCount);
+        analyser.getByteFrequencyData(data);
+        setWaveHeights(Array.from({ length: 8 }, (_, i) => {
+          const raw = data[Math.floor(i * (data.length / 8))] ?? 0;
+          return Math.max(8, Math.min(34, 8 + (raw / 255) * 26));
+        }));
+        animFrameRef.current = requestAnimationFrame(tick);
+      }
+      tick();
+    }).catch(() => { /* no visualiser if mic permission denied separately */ });
+
+    try { recognition.start(); } catch { /* already running */ }
 
     return () => {
+      recognition.onend = null;
+      recognitionRef.current = null;
+      try { recognition.stop(); } catch { /* ignore */ }
       cancelAnimationFrame(animFrameRef.current);
-      if (mediaRecorderRef.current?.state !== 'inactive') {
-        mediaRecorderRef.current?.stop();
-      }
-      stream?.getTracks().forEach(t => t.stop());
+      streamRef.current?.getTracks().forEach(t => t.stop());
+      streamRef.current = null;
     };
-  }, [state]);
+  }, [state]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleStop() {
-    const mr = mediaRecorderRef.current;
-    if (mr && mr.state !== 'inactive') {
-      mr.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
-        onStop(blob);
-      };
-      mr.stop();
-    } else {
-      onStop(new Blob([], { type: 'audio/webm' }));
+    const recognition = recognitionRef.current;
+    if (recognition) {
+      recognition.onend = null;
+      recognitionRef.current = null;
+      try { recognition.stop(); } catch { /* ignore */ }
     }
+    cancelAnimationFrame(animFrameRef.current);
+    streamRef.current?.getTracks().forEach(t => t.stop());
+    streamRef.current = null;
+    onStop(finalTextRef.current.trim() || transcriptText.trim());
   }
 
   if (state === 'idle') return null;
@@ -90,7 +151,9 @@ export function VoiceCapture({ state, elapsedMs, transcriptText, onStop, onCance
 
         {state === 'listening' && (
           <>
-            <div className={styles.listeningLabel}>Listening…</div>
+            <div className={styles.listeningLabel}>
+              {unsupported ? 'Not supported in this browser' : 'Listening…'}
+            </div>
 
             <div className={styles.micAvatar}>
               <div className={styles.pulseRing} />
@@ -99,11 +162,15 @@ export function VoiceCapture({ state, elapsedMs, transcriptText, onStop, onCance
               </div>
             </div>
 
-            <div className={styles.waveform}>
-              {waveHeights.map((h, i) => (
-                <div key={i} className={styles.bar} style={{ height: h }} />
-              ))}
-            </div>
+            {transcriptText ? (
+              <div className={styles.liveTranscript}>{transcriptText}</div>
+            ) : (
+              <div className={styles.waveform}>
+                {waveHeights.map((h, i) => (
+                  <div key={i} className={styles.bar} style={{ height: h }} />
+                ))}
+              </div>
+            )}
 
             <div className={styles.timer}>{formatElapsed(elapsedMs)}</div>
 
@@ -127,13 +194,16 @@ export function VoiceCapture({ state, elapsedMs, transcriptText, onStop, onCance
         {state === 'transcribing' && (
           <>
             <div className={styles.transcribingHeader}>
-              <div className={styles.spinner} aria-hidden="true" />
-              <span className={styles.listeningLabel} style={{ marginBottom: 0 }}>Transcribing…</span>
+              <span className={styles.listeningLabel} style={{ marginBottom: 0 }}>Review</span>
             </div>
 
             <div className={styles.transcriptBox}>
               <span>{transcriptText}</span>
-              <span className={styles.cursor}>|</span>
+              {!transcriptText && (
+                <span style={{ color: 'var(--text-tertiary)', fontStyle: 'italic' }}>
+                  Nothing captured — try again?
+                </span>
+              )}
             </div>
 
             <div className={styles.fieldHint}>
@@ -143,7 +213,13 @@ export function VoiceCapture({ state, elapsedMs, transcriptText, onStop, onCance
 
             <div className={styles.rowBtns}>
               <button className={`${styles.rowBtn} ${styles.rowCancel}`} onClick={onCancel}>Cancel</button>
-              <button className={`${styles.rowBtn} ${styles.rowSave}`} onClick={() => onSave(transcriptText)}>Save</button>
+              <button
+                className={`${styles.rowBtn} ${styles.rowSave}`}
+                onClick={() => onSave(transcriptText)}
+                disabled={!transcriptText.trim()}
+              >
+                Save
+              </button>
             </div>
           </>
         )}
