@@ -17,6 +17,7 @@ const CODE_KEY = 'task-code';
 const NAME_KEY = 'task-username';
 const cacheKey = (c: string) => `task-cache-${c}`;
 const tagsKey = (c: string) => `task-tags-${c}`;
+const instructionsKey = (c: string) => `task-parse-instructions-${c}`;
 const QUEUE_KEY = 'task-queue';
 
 // ── Known tags ────────────────────────────────────────────────────────────────
@@ -78,6 +79,8 @@ export default function App() {
   const [taskSheet, setTaskSheet] = useState<{ task?: Task; prefillTitle?: string; parsed?: ParsedTask } | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showManageTags, setShowManageTags] = useState(false);
+  const [showInstructions, setShowInstructions] = useState(false);
+  const [parseInstructions, setParseInstructions] = useState('');
   const [knownTags, setKnownTags] = useState<string[]>([]);
   const [codeCopied, setCodeCopied] = useState(false);
 
@@ -142,6 +145,7 @@ export default function App() {
     }
 
     setKnownTags(getKnownTags(code));
+    setParseInstructions(localStorage.getItem(instructionsKey(code)) ?? '');
     setView('ready');
 
     channelRef.current = supabase
@@ -312,7 +316,7 @@ export default function App() {
           'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
           'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
         },
-        body: JSON.stringify({ transcript: text, today }),
+        body: JSON.stringify({ transcript: text, today, instructions: parseInstructions }),
       });
       const payload = await res.json();
       if (res.ok && payload.title) {
@@ -382,6 +386,7 @@ export default function App() {
               <span className="settings-value">{userName}</span>
             </div>
           )}
+          <button className="settings-action-btn" onClick={() => { setShowSettings(false); setShowInstructions(true); }}>Voice parsing instructions</button>
           <button className="settings-action-btn" onClick={() => { setShowSettings(false); setShowManageTags(true); }}>Manage tags</button>
           <button className="settings-leave-btn" onClick={handleLeave}>Leave this list</button>
         </div>
@@ -432,6 +437,35 @@ export default function App() {
         onStop={handleVoiceStop}
         onCancel={() => setVoiceCaptureState('idle')}
       />
+
+      {showInstructions && (
+        <div className="manage-overlay" onClick={e => e.target === e.currentTarget && setShowInstructions(false)}>
+          <div className="manage-sheet">
+            <div className="manage-header">
+              <span className="manage-title">Voice parsing instructions</span>
+              <button className="header-icon-btn" onClick={() => setShowInstructions(false)} aria-label="Close">
+                <span className="msym" style={{ fontSize: 20 }}>close</span>
+              </button>
+            </div>
+            <p className="manage-empty" style={{ textAlign: 'left', padding: 0 }}>
+              Tell the AI how to interpret your voice notes — categories, tags, shortcuts, anything. Written in plain English.
+            </p>
+            <textarea
+              className="instructions-input"
+              placeholder={'Examples:\n• Tag anything admin-related with #admin\n• "ping" means send a message — category work\n• Groceries always go in errands with tag #shopping\n• Morning tasks are usually health category'}
+              value={parseInstructions}
+              onChange={e => setParseInstructions(e.target.value)}
+              rows={8}
+            />
+            <button className="instructions-save-btn" onClick={() => {
+              localStorage.setItem(instructionsKey(codeRef.current), parseInstructions);
+              setShowInstructions(false);
+            }}>
+              Save
+            </button>
+          </div>
+        </div>
+      )}
 
       {showManageTags && (
         <div className="manage-overlay" onClick={e => e.target === e.currentTarget && setShowManageTags(false)}>

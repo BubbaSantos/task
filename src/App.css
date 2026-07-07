@@ -182,6 +182,35 @@
   color: var(--accent);
 }
 
+.instructions-input {
+  width: 100%;
+  font-family: var(--font-ui);
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--text-primary);
+  background: var(--hairline);
+  border: none;
+  border-radius: 12px;
+  padding: 12px 14px;
+  resize: none;
+  outline: none;
+  box-sizing: border-box;
+}
+.instructions-input::placeholder { color: var(--text-tertiary); }
+
+.instructions-save-btn {
+  align-self: flex-end;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 14px;
+  padding: 12px 28px;
+  font-family: var(--font-ui);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
 .manage-tag-delete {
   width: 34px;
   height: 34px;

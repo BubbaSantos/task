@@ -11,7 +11,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
 
   try {
-    const { transcript, today } = await req.json() as { transcript: string; today: string };
+    const { transcript, today, instructions } = await req.json() as { transcript: string; today: string; instructions?: string };
 
     const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
     if (!apiKey) throw new Error("ANTHROPIC_API_KEY secret not set");
@@ -36,7 +36,7 @@ Categories (pick the best fit):
 - health: medical, exercise, wellness, appointments
 - errands: shopping, chores, admin, errands
 
-Return this JSON shape exactly:
+${instructions?.trim() ? `Custom instructions from the user (apply these above all else):\n${instructions.trim()}\n\n` : ''}Return this JSON shape exactly:
 {
   "title": "concise action phrase only — no dates or categories here",
   "categoryId": "work|personal|health|errands",
