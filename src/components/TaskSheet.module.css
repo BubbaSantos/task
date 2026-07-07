@@ -26,6 +26,7 @@
   max-height: 90vh;
   overflow-y: auto;
   animation: slideUp 220ms ease-out;
+  transition: margin-bottom 0.15s ease;
 }
 @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
 

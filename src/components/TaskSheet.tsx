@@ -27,12 +27,30 @@ export function TaskSheet({ task, prefillTitle, categories, onSave, onDelete, on
   const [dueDate, setDueDate] = useState<string | null>(task?.dueDate ?? today);
   const [notes, setNotes] = useState(task?.notes ?? '');
   const titleRef = useRef<HTMLTextAreaElement>(null);
+  const sheetRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const el = titleRef.current;
     if (!el) return;
     el.focus();
     el.selectionStart = el.selectionEnd = el.value.length;
+  }, []);
+
+  // Push sheet above the virtual keyboard using visualViewport
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    function update() {
+      const offset = Math.max(0, window.innerHeight - vv!.height - vv!.offsetTop);
+      if (sheetRef.current) sheetRef.current.style.marginBottom = `${offset}px`;
+    }
+    vv.addEventListener('resize', update);
+    vv.addEventListener('scroll', update);
+    update();
+    return () => {
+      vv.removeEventListener('resize', update);
+      vv.removeEventListener('scroll', update);
+    };
   }, []);
 
   // Auto-grow textarea
@@ -58,7 +76,7 @@ export function TaskSheet({ task, prefillTitle, categories, onSave, onDelete, on
 
   return (
     <div className={styles.backdrop} onClick={e => e.target === e.currentTarget && onCancel()}>
-      <div className={styles.sheet} role="dialog" aria-label={isEditing ? 'Edit task' : 'New task'}>
+      <div ref={sheetRef} className={styles.sheet} role="dialog" aria-label={isEditing ? 'Edit task' : 'New task'}>
         <div className={styles.handle} />
 
         <div className={styles.sheetHeader}>

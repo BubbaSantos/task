@@ -371,7 +371,10 @@ export default function App() {
       <VersionBadge />
 
       <div className="fab-group">
-        <button className="fab fab-add" onClick={() => setTaskSheet({})} aria-label="Add task">
+        <button className="fab fab-add" onClick={() => {
+          document.querySelector('.task-scroll')?.scrollTo({ top: 999999, behavior: 'smooth' });
+          setTaskSheet({});
+        }} aria-label="Add task">
           <span className="msym" style={{ fontSize: 28, color: '#fff' }}>add</span>
         </button>
         <button className="fab" onClick={() => setVoiceCaptureState('listening')} aria-label="Start voice capture">
