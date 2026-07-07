@@ -41,6 +41,15 @@
   margin-bottom: 4px;
 }
 
+.parsingSpinner {
+  width: 48px;
+  height: 48px;
+  border: 3px solid var(--accent-tint);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
 .listeningLabel {
   font-size: 15px;
   font-weight: 600;

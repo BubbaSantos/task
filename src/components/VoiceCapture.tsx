@@ -134,6 +134,21 @@ export function VoiceCapture({ state, elapsedMs, onStop, onCancel }: Props) {
 
   const liveText = (finalTextRef.current + ' ' + interimText).trim();
 
+  if (state === 'parsing') {
+    return (
+      <div className={styles.backdrop}>
+        <div className={styles.sheet} role="dialog" aria-label="Parsing task">
+          <div className={styles.handle} />
+          <div className={styles.listeningLabel} style={{ color: 'var(--text-secondary)' }}>
+            Understanding your task…
+          </div>
+          <div className={styles.parsingSpinner} />
+          {liveText && <div className={styles.liveTranscript}>{liveText}</div>}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={styles.backdrop} onClick={e => e.target === e.currentTarget && onCancel()}>
       <div className={styles.sheet} role="dialog" aria-label="Voice capture">

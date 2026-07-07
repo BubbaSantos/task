@@ -13,9 +13,12 @@ interface TaskDraft {
   tags: string[];
 }
 
+interface ParsedTask { title: string; categoryId: string; dueDate: string | null; tags: string[]; notes: string; }
+
 interface Props {
   task?: Task;           // undefined = new task
-  prefillTitle?: string; // populated from voice
+  prefillTitle?: string; // plain voice fallback
+  parsed?: ParsedTask;   // AI-parsed voice result
   categories: Category[];
   knownTags: string[];
   onSave: (draft: TaskDraft) => void;
@@ -23,13 +26,13 @@ interface Props {
   onCancel: () => void;
 }
 
-export function TaskSheet({ task, prefillTitle, categories, knownTags, onSave, onDelete, onCancel }: Props) {
+export function TaskSheet({ task, prefillTitle, parsed, categories, knownTags, onSave, onDelete, onCancel }: Props) {
   const today = new Date().toISOString().slice(0, 10);
-  const [title, setTitle] = useState(task?.title ?? prefillTitle ?? '');
-  const [categoryId, setCategoryId] = useState(task?.categoryId ?? categories[0]?.id ?? '');
-  const [dueDate, setDueDate] = useState<string | null>(task?.dueDate ?? today);
-  const [notes, setNotes] = useState(task?.notes ?? '');
-  const [tags, setTags] = useState<string[]>(task?.tags ?? []);
+  const [title, setTitle] = useState(task?.title ?? parsed?.title ?? prefillTitle ?? '');
+  const [categoryId, setCategoryId] = useState(task?.categoryId ?? parsed?.categoryId ?? categories[0]?.id ?? '');
+  const [dueDate, setDueDate] = useState<string | null>(task?.dueDate ?? parsed?.dueDate ?? today);
+  const [notes, setNotes] = useState(task?.notes ?? parsed?.notes ?? '');
+  const [tags, setTags] = useState<string[]>(task?.tags ?? parsed?.tags ?? []);
   const [tagInput, setTagInput] = useState('');
   const titleRef = useRef<HTMLTextAreaElement>(null);
 

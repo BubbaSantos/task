@@ -74,7 +74,8 @@ export default function App() {
   const [activeCategoryFilter, setActiveCategoryFilter] = useState<string | null>(null);
   const [voiceCaptureState, setVoiceCaptureState] = useState<VoiceCaptureState>('idle');
   const [recordingElapsedMs, setRecordingElapsedMs] = useState(0);
-  const [taskSheet, setTaskSheet] = useState<{ task?: Task; prefillTitle?: string } | null>(null);
+  interface ParsedTask { title: string; categoryId: string; dueDate: string | null; tags: string[]; notes: string; }
+  const [taskSheet, setTaskSheet] = useState<{ task?: Task; prefillTitle?: string; parsed?: ParsedTask } | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showManageTags, setShowManageTags] = useState(false);
   const [knownTags, setKnownTags] = useState<string[]>([]);
@@ -298,9 +299,28 @@ export default function App() {
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [voiceCaptureState]);
 
-  function handleVoiceStop(text: string) {
-    setVoiceCaptureState('idle');
-    setTaskSheet({ prefillTitle: text });
+  async function handleVoiceStop(text: string) {
+    if (!text.trim()) { setVoiceCaptureState('idle'); return; }
+    setVoiceCaptureState('parsing');
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const fnUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/parse-task`;
+      const res = await fetch(fnUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY },
+        body: JSON.stringify({ transcript: text, today }),
+      });
+      if (res.ok) {
+        const parsed = await res.json();
+        setVoiceCaptureState('idle');
+        setTaskSheet({ parsed });
+      } else {
+        throw new Error('parse failed');
+      }
+    } catch {
+      setVoiceCaptureState('idle');
+      setTaskSheet({ prefillTitle: text }); // fallback: just pre-fill title
+    }
   }
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -442,6 +462,7 @@ export default function App() {
         <TaskSheet
           task={taskSheet.task}
           prefillTitle={taskSheet.prefillTitle}
+          parsed={taskSheet.parsed}
           categories={DEFAULT_CATEGORIES}
           knownTags={knownTags}
           onSave={handleTaskSheetSave}
