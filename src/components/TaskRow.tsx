@@ -42,9 +42,8 @@ export function TaskRow({ task, category, isLast, onToggle, onOpen, onDelete }: 
       const dx = e.touches[0].clientX - startX;
       const dy = e.touches[0].clientY - startY;
       if (!dir) {
-        if (Math.abs(dx) > 5 || Math.abs(dy) > 5)
-          dir = Math.abs(dx) > Math.abs(dy) ? 'h' : 'v';
-        return;
+        if (Math.abs(dx) < 5 && Math.abs(dy) < 5) return;
+        dir = Math.abs(dx) > Math.abs(dy) ? 'h' : 'v';
       }
       if (dir !== 'h') return;
       e.preventDefault();

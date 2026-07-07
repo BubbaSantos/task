@@ -31,6 +31,10 @@
   gap: 12px;
   padding: 14px 16px;
   background: var(--surface);
+  touch-action: pan-y;
+  user-select: none;
+  will-change: transform;
+  overscroll-behavior-x: none;
 }
 .row.animate {
   transition: transform 0.25s ease;
