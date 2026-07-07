@@ -315,9 +315,6 @@ export default function App() {
       <div className="app-header">
         <h1 className="app-title" onClick={() => window.location.reload()} style={{ cursor: 'pointer' }}>Tasks</h1>
         <div className="header-actions">
-          <button className="header-icon-btn" aria-label="Add task" onClick={() => setTaskSheet({})}>
-            <span className="msym" style={{ fontSize: 22, color: 'var(--accent)' }}>add</span>
-          </button>
           <button className="header-icon-btn" aria-label="Settings" onClick={() => setShowSettings(s => !s)}>
             <span className="msym" style={{ fontSize: 20, color: 'var(--text-secondary)' }}>settings</span>
           </button>
@@ -373,9 +370,14 @@ export default function App() {
 
       <VersionBadge />
 
-      <button className="fab" onClick={() => setVoiceCaptureState('listening')} aria-label="Start voice capture">
-        <span className="msym" style={{ fontSize: 28, color: '#fff' }}>mic</span>
-      </button>
+      <div className="fab-group">
+        <button className="fab fab-add" onClick={() => setTaskSheet({})} aria-label="Add task">
+          <span className="msym" style={{ fontSize: 28, color: '#fff' }}>add</span>
+        </button>
+        <button className="fab" onClick={() => setVoiceCaptureState('listening')} aria-label="Start voice capture">
+          <span className="msym" style={{ fontSize: 28, color: '#fff' }}>mic</span>
+        </button>
+      </div>
 
       <VoiceCapture
         state={voiceCaptureState}
