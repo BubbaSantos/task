@@ -520,8 +520,8 @@ export default function App() {
             <label className="theme-toggle">
               <input
                 type="checkbox"
-                checked={themePref === 'dark'}
-                onChange={e => setThemePref(e.target.checked ? 'dark' : 'system')}
+                checked={themePref === 'dark' || (themePref === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)}
+                onChange={e => setThemePref(e.target.checked ? 'dark' : 'light')}
               />
               <span className="theme-toggle-track" />
             </label>
