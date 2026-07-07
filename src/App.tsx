@@ -12,6 +12,17 @@ import { VersionBadge } from './components/VersionBadge';
 import { CodeScreen } from './components/CodeScreen';
 import './App.css';
 
+// ── Theme ─────────────────────────────────────────────────────────────────────
+type ThemePref = 'system' | 'light' | 'dark';
+const THEME_KEY = 'task-theme';
+
+function applyTheme(pref: ThemePref) {
+  const root = document.documentElement;
+  if (pref === 'dark') root.setAttribute('data-theme', 'dark');
+  else if (pref === 'light') root.setAttribute('data-theme', 'light');
+  else root.removeAttribute('data-theme');
+}
+
 // ── Storage keys ─────────────────────────────────────────────────────────────
 const CODE_KEY = 'task-code';
 const NAME_KEY = 'task-username';
@@ -102,6 +113,10 @@ export default function App() {
   const [parseInstructions, setParseInstructions] = useState('');
   const [knownTagsByCategory, setKnownTagsByCategory] = useState<Record<string, string[]>>({});
   const [codeCopied, setCodeCopied] = useState(false);
+  const [themePref, setThemePref] = useState<ThemePref>(() => {
+    const saved = localStorage.getItem(THEME_KEY) as ThemePref | null;
+    return saved ?? 'system';
+  });
 
   // Manage categories UI state
   const [editingCat, setEditingCat] = useState<Category | null>(null);
@@ -423,6 +438,15 @@ export default function App() {
     setKnownTagsByCategory(prev => ({ ...prev, [catId]: current }));
   }
 
+  // ── Theme ─────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    applyTheme(themePref);
+    localStorage.setItem(THEME_KEY, themePref);
+  }, [themePref]);
+
+  // Apply saved theme on mount (before first render)
+  useEffect(() => { applyTheme(themePref); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Voice timer ───────────────────────────────────────────────────────────
   useEffect(() => {
     if (voiceCaptureState === 'listening') {
@@ -491,6 +515,17 @@ export default function App() {
               <span className="settings-value">{userName}</span>
             </div>
           )}
+          <div className="settings-row">
+            <span className="settings-label">Dark mode</span>
+            <label className="theme-toggle">
+              <input
+                type="checkbox"
+                checked={themePref === 'dark'}
+                onChange={e => setThemePref(e.target.checked ? 'dark' : 'system')}
+              />
+              <span className="theme-toggle-track" />
+            </label>
+          </div>
           <button className="settings-action-btn" onClick={() => { setShowSettings(false); setShowInstructions(true); }}>Voice parsing instructions</button>
           <button className="settings-action-btn" onClick={() => { setShowSettings(false); setShowManageCategories(true); }}>Manage categories</button>
           <button className="settings-action-btn" onClick={() => { setShowSettings(false); setShowManageTags(true); }}>Manage tags</button>

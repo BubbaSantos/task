@@ -18,7 +18,7 @@
   position: absolute;
   inset: 3px 3px 3px 3px;
   border-radius: 12px;
-  background: oklch(0.55 0.19 30);
+  background: var(--overdue-text);
   color: #fff;
   border: none;
   cursor: pointer;
@@ -50,7 +50,7 @@
   transition: transform 0.25s ease;
 }
 .row.rowPending {
-  background: oklch(0.95 0.03 260);
+  background: var(--pending-tint);
 }
 
 /* ── Checkbox ── */

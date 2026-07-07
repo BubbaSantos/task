@@ -1,15 +1,22 @@
 :root {
   --bg-app: oklch(0.965 0.004 80);
   --surface: #ffffff;
+  --sheet-surface: #ffffff;
   --text-primary: oklch(0.22 0.01 80);
   --text-secondary: oklch(0.5 0.01 80);
   --text-tertiary: oklch(0.65 0.01 80);
+  --text-faint: oklch(0.72 0.008 80);
+  --text-completed: oklch(0.72 0.008 80);
   --hairline: oklch(0.94 0.004 80);
   --accent: oklch(0.5 0.14 260);
+  --accent-on: #ffffff;
   --accent-tint: oklch(0.94 0.03 260);
+  --pending-tint: oklch(0.95 0.03 260);
   --overdue-text: oklch(0.55 0.19 30);
   --overdue-bg: oklch(0.94 0.03 30);
   --backdrop-dim: oklch(0.15 0.01 80 / 0.45);
+  --shadow-fab: oklch(0.5 0.14 260 / 0.4);
+  --shadow-fab-active: oklch(0.5 0.14 260 / 0.3);
 
   --cat-work: oklch(0.6 0.12 260);
   --cat-personal: oklch(0.6 0.12 150);
@@ -22,6 +29,86 @@
   --radius-card: 16px;
   --radius-sheet: 28px;
   --radius-pill: 100px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-app: #282828;
+    --surface: #3c3836;
+    --sheet-surface: #32302f;
+    --text-primary: #ebdbb2;
+    --text-secondary: #d5c4a1;
+    --text-tertiary: #bdae93;
+    --text-faint: #928374;
+    --text-completed: #7c6f64;
+    --hairline: #504945;
+    --accent: #83a598;
+    --accent-on: #282828;
+    --accent-tint: #3d4f4c;
+    --pending-tint: #3d4f4c;
+    --overdue-text: #fb4934;
+    --overdue-bg: #3c1f1c;
+    --backdrop-dim: rgba(0, 0, 0, 0.55);
+    --shadow-fab: rgba(0, 0, 0, 0.5);
+    --shadow-fab-active: rgba(0, 0, 0, 0.4);
+
+    --cat-work: #83a598;
+    --cat-personal: #b8bb26;
+    --cat-health: #fe8019;
+    --cat-errands: #d3869b;
+  }
+}
+
+[data-theme="dark"] {
+  --bg-app: #282828;
+  --surface: #3c3836;
+  --sheet-surface: #32302f;
+  --text-primary: #ebdbb2;
+  --text-secondary: #d5c4a1;
+  --text-tertiary: #bdae93;
+  --text-faint: #928374;
+  --text-completed: #7c6f64;
+  --hairline: #504945;
+  --accent: #83a598;
+  --accent-on: #282828;
+  --accent-tint: #3d4f4c;
+  --pending-tint: #3d4f4c;
+  --overdue-text: #fb4934;
+  --overdue-bg: #3c1f1c;
+  --backdrop-dim: rgba(0, 0, 0, 0.55);
+  --shadow-fab: rgba(0, 0, 0, 0.5);
+  --shadow-fab-active: rgba(0, 0, 0, 0.4);
+
+  --cat-work: #83a598;
+  --cat-personal: #b8bb26;
+  --cat-health: #fe8019;
+  --cat-errands: #d3869b;
+}
+
+[data-theme="light"] {
+  --bg-app: oklch(0.965 0.004 80);
+  --surface: #ffffff;
+  --sheet-surface: #ffffff;
+  --text-primary: oklch(0.22 0.01 80);
+  --text-secondary: oklch(0.5 0.01 80);
+  --text-tertiary: oklch(0.65 0.01 80);
+  --text-faint: oklch(0.72 0.008 80);
+  --text-completed: oklch(0.72 0.008 80);
+  --hairline: oklch(0.94 0.004 80);
+  --accent: oklch(0.5 0.14 260);
+  --accent-on: #ffffff;
+  --accent-tint: oklch(0.94 0.03 260);
+  --pending-tint: oklch(0.95 0.03 260);
+  --overdue-text: oklch(0.55 0.19 30);
+  --overdue-bg: oklch(0.94 0.03 30);
+  --backdrop-dim: oklch(0.15 0.01 80 / 0.45);
+  --shadow-fab: oklch(0.5 0.14 260 / 0.4);
+  --shadow-fab-active: oklch(0.5 0.14 260 / 0.3);
+
+  --cat-work: oklch(0.6 0.12 260);
+  --cat-personal: oklch(0.6 0.12 150);
+  --cat-health: oklch(0.62 0.14 35);
+  --cat-errands: oklch(0.58 0.12 300);
 }
 
 *, *::before, *::after {
