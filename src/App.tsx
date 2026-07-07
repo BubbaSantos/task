@@ -215,6 +215,22 @@ export default function App() {
           tasksRef.current = next; setCached(code, next); return next;
         });
       })
+      .on('broadcast', { event: 'sync-request' }, () => {
+        // A new member joined — send them our full task list
+        if (tasksRef.current.length > 0) {
+          channelRef.current?.send({ type: 'broadcast', event: 'sync-response', payload: { tasks: tasksRef.current } });
+        }
+      })
+      .on('broadcast', { event: 'sync-response' }, ({ payload }) => {
+        const incoming = payload.tasks as Task[];
+        if (!Array.isArray(incoming) || !incoming.length) return;
+        setTasksRaw(prev => {
+          const map = new Map(prev.map(t => [t.id, t]));
+          for (const t of incoming) if (!map.has(t.id)) map.set(t.id, t);
+          const next = Array.from(map.values());
+          tasksRef.current = next; setCached(code, next); return next;
+        });
+      })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'todo_tasks' }, (payload) => {
         const newRow = (payload.new ?? {}) as Record<string, unknown>;
         const oldRow = (payload.old ?? {}) as Record<string, unknown>;
@@ -240,6 +256,10 @@ export default function App() {
         }
       })
       .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          // Ask peers for their tasks in case we're missing history
+          channelRef.current?.send({ type: 'broadcast', event: 'sync-request', payload: {} });
+        }
         if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
           setTimeout(() => { if (codeRef.current) loadAndSubscribe(codeRef.current); }, 4000);
         }
