@@ -566,9 +566,26 @@ export default function App() {
   function handleClearCompleted() {
     const completed = tasksRef.current.filter(t => t.completed);
     if (!completed.length) return;
+    if (!window.confirm(`Delete ${completed.length} completed task${completed.length === 1 ? '' : 's'}?`)) return;
     const next = tasksRef.current.filter(t => !t.completed);
     setTasks(next);
     for (const t of completed) {
+      broadcastDelete(t.id);
+      if (navigator.onLine) {
+        dbDeleteTask(t.id).catch(() => enqueue({ type: 'delete', id: t.id }));
+      } else {
+        enqueue({ type: 'delete', id: t.id });
+      }
+    }
+  }
+
+  function handleDeleteAllTasks() {
+    const all = tasksRef.current;
+    if (!all.length) return;
+    if (!window.confirm(`Delete all ${all.length} task${all.length === 1 ? '' : 's'}? This cannot be undone.`)) return;
+    setTasks([]);
+    setShowSettings(false);
+    for (const t of all) {
       broadcastDelete(t.id);
       if (navigator.onLine) {
         dbDeleteTask(t.id).catch(() => enqueue({ type: 'delete', id: t.id }));
@@ -669,6 +686,7 @@ export default function App() {
           <button className="settings-action-btn" onClick={() => { setShowSettings(false); setShowInstructions(true); }}>Voice parsing instructions</button>
           <button className="settings-action-btn" onClick={() => { setShowSettings(false); setShowManageCategories(true); }}>Manage categories</button>
           <button className="settings-action-btn" onClick={() => { setShowSettings(false); setShowManageTags(true); }}>Manage tags</button>
+          <button className="settings-leave-btn" onClick={handleDeleteAllTasks}>Delete all tasks</button>
           <button className="settings-leave-btn" onClick={handleLeave}>Leave this list</button>
         </div>
       )}
