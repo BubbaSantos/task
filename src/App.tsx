@@ -73,21 +73,27 @@ export default function App() {
 
   // ── Load tasks + first-login localStorage migration ─────────────────────
   async function loadUserTasks(u: User) {
-    const remote = await dbFetchTasks(u.id);
-    if (remote.length > 0) {
-      setTasksState(remote);
-      writeLocalCache(remote);
-    } else {
-      // First login — migrate any non-seed local tasks automatically
-      const local = readLocalTasks().filter(t => !SEED_IDS.has(t.id));
-      if (local.length > 0) {
-        await dbUpsertTasks(local, u.id);
-        setTasksState(local);
-        writeLocalCache(local);
+    try {
+      const remote = await dbFetchTasks(u.id);
+      if (remote.length > 0) {
+        setTasksState(remote);
+        writeLocalCache(remote);
       } else {
-        setTasksState([]);
-        writeLocalCache([]);
+        // First login — migrate any non-seed local tasks automatically
+        const local = readLocalTasks().filter(t => !SEED_IDS.has(t.id));
+        if (local.length > 0) {
+          await dbUpsertTasks(local, u.id);
+          setTasksState(local);
+          writeLocalCache(local);
+        } else {
+          setTasksState([]);
+          writeLocalCache([]);
+        }
       }
+    } catch (err) {
+      console.error('Failed to load tasks:', err);
+      // Fall back to local cache so the app is still usable
+      setTasksState(readLocalTasks());
     }
     setView('ready');
   }
