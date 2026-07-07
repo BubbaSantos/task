@@ -1,12 +1,39 @@
+.swipeWrapper {
+  position: relative;
+  overflow: hidden;
+  border-bottom: 1px solid var(--hairline);
+}
+.swipeWrapper.last {
+  border-bottom: none;
+}
+
+.deleteBtn {
+  position: absolute;
+  inset: 0;
+  background: oklch(0.55 0.19 30);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-ui);
+  font-size: 14px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 20px;
+  letter-spacing: 0.02em;
+}
+
 .row {
+  position: relative;
   display: flex;
   align-items: flex-start;
   gap: 12px;
   padding: 14px 16px;
-  border-bottom: 1px solid var(--hairline);
+  background: var(--surface);
 }
-.row.last {
-  border-bottom: none;
+.row.animate {
+  transition: transform 0.25s ease;
 }
 
 .checkbox {

@@ -248,9 +248,7 @@ export default function App() {
     setTaskSheet(null);
   }
 
-  function handleTaskDelete() {
-    const id = taskSheet?.task?.id;
-    if (!id) return;
+  const handleDeleteById = useCallback((id: string) => {
     setTasks(tasksRef.current.filter(t => t.id !== id));
     broadcastDelete(id);
     if (navigator.onLine) {
@@ -258,6 +256,12 @@ export default function App() {
     } else {
       enqueue({ type: 'delete', id });
     }
+  }, []);
+
+  function handleTaskDelete() {
+    const id = taskSheet?.task?.id;
+    if (!id) return;
+    handleDeleteById(id);
     setTaskSheet(null);
   }
 
@@ -356,6 +360,7 @@ export default function App() {
             categories={DEFAULT_CATEGORIES}
             onToggle={handleToggle}
             onOpen={handleOpenTask}
+            onDelete={handleDeleteById}
           />
         ))}
         {filtered.length === 0 && (

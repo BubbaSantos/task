@@ -16,9 +16,10 @@ interface Props {
   categories: Category[];
   onToggle: (id: string) => void;
   onOpen: (task: Task) => void;
+  onDelete: (id: string) => void;
 }
 
-export function TaskGroup({ bucket, tasks, categories, onToggle, onOpen }: Props) {
+export function TaskGroup({ bucket, tasks, categories, onToggle, onOpen, onDelete }: Props) {
   if (tasks.length === 0) return null;
 
   return (
@@ -33,6 +34,7 @@ export function TaskGroup({ bucket, tasks, categories, onToggle, onOpen }: Props
             isLast={i === tasks.length - 1}
             onToggle={onToggle}
             onOpen={onOpen}
+            onDelete={onDelete}
           />
         ))}
       </div>
