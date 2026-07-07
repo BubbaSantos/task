@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Task, Category, VoiceCaptureState } from './types';
 import { DEFAULT_CATEGORIES, CATEGORY_COLOURS } from './data';
 import { getDateBucket } from './utils/dates';
-import { supabase, rowToTask, dbFetchTasks, dbUpsertTask, dbDeleteTask } from './lib/supabase';
+import { supabase, rowToTask, dbFetchTasks, dbUpsertTask, dbDeleteTask, dbFetchCategories, dbUpsertCategories, dbDeleteCategory, dbFetchAllTags, dbUpsertTag, dbDeleteTag } from './lib/supabase';
 import { tagColor } from './utils/tagColor';
 import { CategoryFilter } from './components/CategoryFilter';
 import { TaskGroup } from './components/TaskGroup';
@@ -140,7 +140,11 @@ export default function App() {
   function updateCategories(cats: Category[]) {
     categoriesRef.current = cats;
     setCategories(cats);
-    if (codeRef.current) saveCategories(codeRef.current, cats);
+    if (codeRef.current) {
+      saveCategories(codeRef.current, cats);
+      dbUpsertCategories(cats, codeRef.current).catch(() => {});
+      channelRef.current?.send({ type: 'broadcast', event: 'categories-change', payload: { categories: cats } });
+    }
   }
 
   function refreshTags(code: string, cats: Category[]) {
@@ -166,13 +170,40 @@ export default function App() {
     const cached = getCached(code);
     if (cached.length > 0) { tasksRef.current = cached; setTasksRaw(cached); }
 
-    const cats = getCategories(code);
+    let cats = getCategories(code);
     categoriesRef.current = cats;
     setCategories(cats);
 
     if (navigator.onLine) {
       await flushQueue();
       const pendingOps = getQueue();
+      try {
+        // Sync categories from DB (DB wins; if empty, push local defaults)
+        const dbCats = await dbFetchCategories(code);
+        if (dbCats.length > 0) {
+          cats = dbCats;
+          categoriesRef.current = cats;
+          setCategories(cats);
+          saveCategories(code, cats);
+        } else {
+          dbUpsertCategories(cats, code).catch(() => {});
+        }
+        // Sync tags from DB, merged with local
+        const dbTags = await dbFetchAllTags(code);
+        const localTags = getAllTagsByCategory(code, cats);
+        const mergedTags: Record<string, string[]> = {};
+        for (const cat of cats) {
+          mergedTags[cat.id] = Array.from(new Set([...(dbTags[cat.id] ?? []), ...(localTags[cat.id] ?? [])]));
+        }
+        // Push any local-only tags to DB
+        for (const [catId, tags] of Object.entries(localTags)) {
+          for (const tag of tags) {
+            if (!(dbTags[catId] ?? []).includes(tag)) dbUpsertTag(code, catId, tag).catch(() => {});
+          }
+        }
+        setKnownTagsByCategory(mergedTags);
+      } catch { /* fall through */ }
+
       try {
         const remote = await dbFetchTasks(code);
         const remoteIds = new Set(remote.map(t => t.id));
@@ -201,7 +232,7 @@ export default function App() {
       }
     }
 
-    refreshTags(code, cats);
+    if (!navigator.onLine) refreshTags(code, cats);
     setParseInstructions(localStorage.getItem(instructionsKey(code)) ?? '');
     setView('ready');
 
@@ -243,6 +274,14 @@ export default function App() {
         // Persist any tasks we didn't already have to Supabase
         if (navigator.onLine) {
           for (const t of incoming) dbUpsertTask(t, code).catch(() => {});
+        }
+      })
+      .on('broadcast', { event: 'categories-change' }, ({ payload }) => {
+        const cats = payload.categories as Category[];
+        if (Array.isArray(cats) && cats.length > 0) {
+          categoriesRef.current = cats;
+          setCategories(cats);
+          saveCategories(code, cats);
         }
       })
       .on('broadcast', { event: 'task-change' }, () => {
@@ -407,6 +446,7 @@ export default function App() {
     if (task.tags.length) {
       const merged = mergeTags(codeRef.current, task.categoryId, task.tags);
       setKnownTagsByCategory(prev => ({ ...prev, [task.categoryId]: merged }));
+      for (const tag of task.tags) dbUpsertTag(codeRef.current, task.categoryId, tag).catch(() => {});
     }
     const next = draft.id
       ? tasksRef.current.map(t => t.id === task.id ? task : t)
@@ -490,6 +530,7 @@ export default function App() {
   function handleDeleteCategory(id: string) {
     const next = categoriesRef.current.filter(c => c.id !== id);
     updateCategories(next);
+    dbDeleteCategory(id, codeRef.current).catch(() => {});
     // Reassign tasks in deleted category to first remaining category
     const fallbackId = next[0]?.id;
     if (fallbackId) {
@@ -519,6 +560,18 @@ export default function App() {
     const current = getTags(codeRef.current, catId).filter(t => t !== tag);
     saveTags(codeRef.current, catId, current);
     setKnownTagsByCategory(prev => ({ ...prev, [catId]: current }));
+    dbDeleteTag(codeRef.current, catId, tag).catch(() => {});
+  }
+
+  function handleClearCompleted() {
+    const completed = tasksRef.current.filter(t => t.completed);
+    if (!completed.length) return;
+    const next = tasksRef.current.filter(t => !t.completed);
+    setTasks(next);
+    for (const t of completed) {
+      broadcastDelete(t.id);
+      if (navigator.onLine) dbDeleteTask(t.id).catch(() => {});
+    }
   }
 
   // ── Theme ─────────────────────────────────────────────────────────────────
@@ -634,6 +687,7 @@ export default function App() {
             onToggle={handleToggle}
             onOpen={handleOpenTask}
             onDelete={handleDeleteById}
+            onClearCompleted={bucket === 'completed' ? handleClearCompleted : undefined}
           />
         ))}
         {incomplete.length === 0 && grouped.completed?.length === 0 && (
