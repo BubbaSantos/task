@@ -7,9 +7,10 @@ interface Props {
   category: Category | undefined;
   isLast: boolean;
   onToggle: (id: string) => void;
+  onOpen: (task: Task) => void;
 }
 
-export function TaskRow({ task, category, isLast, onToggle }: Props) {
+export function TaskRow({ task, category, isLast, onToggle, onOpen }: Props) {
   const bucket: DateBucket = getDateBucket(task.dueDate);
   const dateLabel = formatDueDate(task.dueDate, bucket);
 
@@ -24,7 +25,7 @@ export function TaskRow({ task, category, isLast, onToggle }: Props) {
         {task.completed && <span className="msym" style={{ fontSize: 14, color: '#fff' }}>check</span>}
       </button>
 
-      <div className={styles.content} onClick={() => window.location.reload()}>
+      <div className={styles.content} onClick={() => onOpen(task)}>
         <div className={`${styles.title} ${task.completed ? styles.completed : ''}`}>
           {task.title}
         </div>

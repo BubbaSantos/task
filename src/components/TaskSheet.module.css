@@ -1,0 +1,203 @@
+.backdrop {
+  position: absolute;
+  inset: 0;
+  background: var(--backdrop-dim);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  z-index: 200;
+  animation: fadeIn 200ms ease-out;
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+.sheet {
+  background: var(--surface);
+  border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+  padding: 12px 24px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  box-shadow: 0 -8px 40px rgba(0,0,0,0.18);
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: slideUp 220ms ease-out;
+}
+@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+.handle {
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--hairline);
+  align-self: center;
+  margin-bottom: 4px;
+}
+
+.sheetHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.sheetTitle {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.closeBtn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: var(--hairline);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  padding: 0;
+}
+
+.titleInput {
+  width: 100%;
+  font-family: var(--font-ui);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+  border: none;
+  outline: none;
+  resize: none;
+  background: transparent;
+  padding: 0;
+  line-height: 1.4;
+  overflow: hidden;
+}
+.titleInput::placeholder { color: var(--text-tertiary); font-weight: 400; }
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.fieldLabel {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.categoryRow {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.catPill {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  border: 1.5px solid transparent;
+  background: transparent;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background 120ms, color 120ms;
+}
+.catPill.catActive { color: #fff; font-weight: 600; }
+.catDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.dateRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.dateInput {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text-primary);
+  background: var(--hairline);
+  border: none;
+  border-radius: 8px;
+  padding: 8px 12px;
+  outline: none;
+  cursor: pointer;
+}
+.clearDate {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  background: var(--hairline);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.notesInput {
+  width: 100%;
+  font-family: var(--font-ui);
+  font-size: 14px;
+  color: var(--text-primary);
+  background: var(--hairline);
+  border: none;
+  border-radius: 12px;
+  padding: 10px 12px;
+  outline: none;
+  resize: none;
+  line-height: 1.5;
+}
+.notesInput::placeholder { color: var(--text-tertiary); }
+
+.bottomRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 4px;
+}
+
+.deleteBtn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--overdue-bg);
+  border: none;
+  border-radius: 10px;
+  padding: 8px 14px;
+  cursor: pointer;
+}
+.deleteBtnLabel {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--overdue-text);
+}
+
+.saveBtn {
+  margin-left: auto;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 14px;
+  padding: 12px 24px;
+  font-family: var(--font-ui);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 150ms;
+}
+.saveBtn:disabled { opacity: 0.4; cursor: default; }
+.saveBtn:not(:disabled):active { opacity: 0.85; }

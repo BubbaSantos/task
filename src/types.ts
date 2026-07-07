@@ -13,6 +13,6 @@ export interface Category {
   colour: string;
 }
 
-export type VoiceCaptureState = 'idle' | 'listening' | 'transcribing';
+export type VoiceCaptureState = 'idle' | 'listening';
 
 export type DateBucket = 'overdue' | 'today' | 'tomorrow' | 'upcoming' | 'none';
