@@ -43,14 +43,19 @@ export default function App() {
 
   // ── Auth bootstrap ──────────────────────────────────────────────────────
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        setUser(session.user);
-        loadUserTasks(session.user);
-      } else {
-        setView('auth');
-      }
-    });
+    const timeout = setTimeout(() => setView('auth'), 8000);
+
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => {
+        clearTimeout(timeout);
+        if (session?.user) {
+          setUser(session.user);
+          loadUserTasks(session.user);
+        } else {
+          setView('auth');
+        }
+      })
+      .catch(() => { clearTimeout(timeout); setView('auth'); });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
