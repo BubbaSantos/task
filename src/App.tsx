@@ -209,7 +209,7 @@ export default function App() {
   return (
     <div className="app-shell">
       <div className="app-header">
-        <h1 className="app-title">Tasks</h1>
+        <h1 className="app-title" onClick={() => window.location.reload()} style={{ cursor: 'pointer' }}>Tasks</h1>
         <div className="header-actions">
           <button className="header-icon-btn" aria-label="Add task" onClick={() => setTaskSheet({})}>
             <span className="msym" style={{ fontSize: 22, color: 'var(--accent)' }}>add</span>
