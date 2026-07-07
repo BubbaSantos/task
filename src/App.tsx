@@ -125,13 +125,31 @@ export default function App() {
 
     setView('ready');
 
-    // No filter on postgres_changes — filter client-side by task_code (same pattern as Trolley).
-    // Broadcast 'change' is sent after every write for instant cross-device notification.
     channelRef.current = supabase
       .channel(`tasks:${code}`)
+      // Broadcast: primary sync — receives full task data instantly, no DB round-trip needed
+      .on('broadcast', { event: 'task-upsert' }, ({ payload }) => {
+        const task = payload.task as Task;
+        console.log('[sync] broadcast task-upsert', task.id);
+        setTasksRaw(prev => {
+          const exists = prev.some(t => t.id === task.id);
+          const next = exists ? prev.map(t => t.id === task.id ? task : t) : [...prev, task];
+          tasksRef.current = next; setCached(code, next); return next;
+        });
+      })
+      .on('broadcast', { event: 'task-delete' }, ({ payload }) => {
+        const id = payload.id as string;
+        console.log('[sync] broadcast task-delete', id);
+        setTasksRaw(prev => {
+          const next = prev.filter(t => t.id !== id);
+          tasksRef.current = next; setCached(code, next); return next;
+        });
+      })
+      // postgres_changes: fallback sync for reconnects / missed broadcasts
       .on('postgres_changes', { event: '*', schema: 'public', table: 'todo_tasks' }, (payload) => {
         const newRow = (payload.new ?? {}) as Record<string, unknown>;
         const oldRow = (payload.old ?? {}) as Record<string, unknown>;
+        console.log('[sync] postgres_changes', payload.eventType);
 
         if (payload.eventType === 'INSERT' && newRow.task_code === code) {
           const task = rowToTask(newRow);
@@ -154,19 +172,20 @@ export default function App() {
           });
         }
       })
-      .on('broadcast', { event: 'change' }, () => {
-        // Secondary: full reload when another device broadcasts a change
-        dbFetchTasks(code).then(remote => { if (remote.length > 0) setTasks(remote); }).catch(() => {});
-      })
       .subscribe((status) => {
+        console.log('[sync] channel status:', status);
         if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
           setTimeout(() => { if (codeRef.current) loadAndSubscribe(codeRef.current); }, 4000);
         }
       });
   }
 
-  function notifyChange() {
-    channelRef.current?.send({ type: 'broadcast', event: 'change', payload: {} });
+  function broadcastUpsert(task: Task) {
+    channelRef.current?.send({ type: 'broadcast', event: 'task-upsert', payload: { task } });
+  }
+
+  function broadcastDelete(id: string) {
+    channelRef.current?.send({ type: 'broadcast', event: 'task-delete', payload: { id } });
   }
 
   // ── Auth (code-based) ─────────────────────────────────────────────────────
@@ -202,9 +221,9 @@ export default function App() {
     if (!task) return;
     const updated = { ...task, completed: !task.completed };
     setTasks(tasksRef.current.map(t => t.id === id ? updated : t));
+    broadcastUpsert(updated);
     if (navigator.onLine) {
       dbUpsertTask(updated, codeRef.current)
-        .then(() => notifyChange())
         .catch(() => enqueue({ type: 'upsert', task: updated, code: codeRef.current }));
     } else {
       enqueue({ type: 'upsert', task: updated, code: codeRef.current });
@@ -219,9 +238,9 @@ export default function App() {
       ? tasksRef.current.map(t => t.id === task.id ? task : t)
       : [...tasksRef.current, task];
     setTasks(next);
+    broadcastUpsert(task);
     if (navigator.onLine) {
       dbUpsertTask(task, codeRef.current)
-        .then(() => notifyChange())
         .catch(() => enqueue({ type: 'upsert', task, code: codeRef.current }));
     } else {
       enqueue({ type: 'upsert', task, code: codeRef.current });
@@ -233,10 +252,9 @@ export default function App() {
     const id = taskSheet?.task?.id;
     if (!id) return;
     setTasks(tasksRef.current.filter(t => t.id !== id));
+    broadcastDelete(id);
     if (navigator.onLine) {
-      dbDeleteTask(id)
-        .then(() => notifyChange())
-        .catch(() => enqueue({ type: 'delete', id }));
+      dbDeleteTask(id).catch(() => enqueue({ type: 'delete', id }));
     } else {
       enqueue({ type: 'delete', id });
     }
