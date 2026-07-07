@@ -307,19 +307,25 @@ export default function App() {
       const fnUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/parse-task`;
       const res = await fetch(fnUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+        },
         body: JSON.stringify({ transcript: text, today }),
       });
-      if (res.ok) {
-        const parsed = await res.json();
+      const payload = await res.json();
+      if (res.ok && payload.title) {
         setVoiceCaptureState('idle');
-        setTaskSheet({ parsed });
+        setTaskSheet({ parsed: payload });
       } else {
-        throw new Error('parse failed');
+        console.error('[parse-task] function error:', payload);
+        throw new Error(payload.error ?? 'parse failed');
       }
-    } catch {
+    } catch (err) {
+      console.error('[parse-task] catch:', err);
       setVoiceCaptureState('idle');
-      setTaskSheet({ prefillTitle: text }); // fallback: just pre-fill title
+      setTaskSheet({ prefillTitle: text });
     }
   }
 
