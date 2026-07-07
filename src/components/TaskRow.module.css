@@ -16,7 +16,8 @@
 
 .deleteBtn {
   position: absolute;
-  inset: 1px 2px 1px 0;
+  inset: 3px 3px 3px 3px;
+  border-radius: 12px;
   background: oklch(0.55 0.19 30);
   color: #fff;
   border: none;
