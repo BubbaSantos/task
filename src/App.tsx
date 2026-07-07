@@ -175,16 +175,23 @@ export default function App() {
       const pendingOps = getQueue();
       try {
         const remote = await dbFetchTasks(code);
-        if (remote.length > 0) {
+        const remoteIds = new Set(remote.map(t => t.id));
+
+        // Backfill: push any locally-cached tasks that Supabase doesn't have yet
+        // (covers tasks created before QuickShell integration, or failed writes)
+        const localOnly = cached.filter(t => !remoteIds.has(t.id));
+        for (const task of localOnly) dbUpsertTask(task, code).catch(() => {});
+
+        if (remote.length > 0 || localOnly.length > 0) {
+          const merged = [...remote, ...localOnly];
           if (pendingOps.length > 0) {
-            const remoteIds = new Set(remote.map(t => t.id));
             const pendingTasks = pendingOps
               .filter((op): op is { type: 'upsert'; task: Task; code: string } => op.type === 'upsert')
               .map(op => op.task)
-              .filter(t => !remoteIds.has(t.id));
-            setTasks([...remote, ...pendingTasks]);
+              .filter(t => !remoteIds.has(t.id) && !localOnly.some(l => l.id === t.id));
+            setTasks([...merged, ...pendingTasks]);
           } else {
-            setTasks(remote);
+            setTasks(merged);
           }
         } else if (pendingOps.length === 0) {
           setTasks([]);
