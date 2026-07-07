@@ -158,9 +158,6 @@ export function TaskRow({ task, category, isLast, onToggle, onOpen, onDelete }: 
               </svg>
             )}
           </div>
-          {rowState === 'pending' && (
-            <span className={styles.tapAgain}>Tap to confirm</span>
-          )}
         </div>
 
         {/* Content */}
