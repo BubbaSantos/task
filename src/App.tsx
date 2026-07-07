@@ -98,9 +98,26 @@ export default function App() {
 
     if (navigator.onLine) {
       await flushQueue();
+      const pendingOps = getQueue();
       try {
         const remote = await dbFetchTasks(code);
-        setTasks(remote);
+        if (remote.length > 0) {
+          // Merge any pending upserts that haven't hit DB yet
+          if (pendingOps.length > 0) {
+            const remoteIds = new Set(remote.map(t => t.id));
+            const pendingTasks = pendingOps
+              .filter((op): op is { type: 'upsert'; task: Task; code: string } => op.type === 'upsert')
+              .map(op => op.task)
+              .filter(t => !remoteIds.has(t.id));
+            setTasks([...remote, ...pendingTasks]);
+          } else {
+            setTasks(remote);
+          }
+        } else if (pendingOps.length === 0) {
+          // DB empty and no pending writes — list is genuinely empty
+          setTasks([]);
+        }
+        // else: DB empty but queue has writes — keep local cache until flush succeeds
       } catch (err) {
         console.error('Failed to fetch tasks:', err);
       }
