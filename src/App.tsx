@@ -125,42 +125,48 @@ export default function App() {
 
     setView('ready');
 
-    // Realtime subscription — handle each event individually for instant sync
+    // No filter on postgres_changes — filter client-side by task_code (same pattern as Trolley).
+    // Broadcast 'change' is sent after every write for instant cross-device notification.
     channelRef.current = supabase
       .channel(`tasks:${code}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'todo_tasks', filter: `task_code=eq.${code}` }, ({ new: row }) => {
-        const task = rowToTask(row as Record<string, unknown>);
-        setTasksRaw(prev => {
-          if (prev.some(t => t.id === task.id)) return prev;
-          const next = [...prev, task];
-          tasksRef.current = next;
-          setCached(code, next);
-          return next;
-        });
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'todo_tasks' }, (payload) => {
+        const newRow = (payload.new ?? {}) as Record<string, unknown>;
+        const oldRow = (payload.old ?? {}) as Record<string, unknown>;
+
+        if (payload.eventType === 'INSERT' && newRow.task_code === code) {
+          const task = rowToTask(newRow);
+          setTasksRaw(prev => {
+            if (prev.some(t => t.id === task.id)) return prev;
+            const next = [...prev, task];
+            tasksRef.current = next; setCached(code, next); return next;
+          });
+        } else if (payload.eventType === 'UPDATE' && newRow.task_code === code) {
+          const task = rowToTask(newRow);
+          setTasksRaw(prev => {
+            const next = prev.map(t => t.id === task.id ? task : t);
+            tasksRef.current = next; setCached(code, next); return next;
+          });
+        } else if (payload.eventType === 'DELETE') {
+          const id = oldRow.id as string;
+          setTasksRaw(prev => {
+            const next = prev.filter(t => t.id !== id);
+            tasksRef.current = next; setCached(code, next); return next;
+          });
+        }
       })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'todo_tasks', filter: `task_code=eq.${code}` }, ({ new: row }) => {
-        const task = rowToTask(row as Record<string, unknown>);
-        setTasksRaw(prev => {
-          const next = prev.map(t => t.id === task.id ? task : t);
-          tasksRef.current = next;
-          setCached(code, next);
-          return next;
-        });
-      })
-      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'todo_tasks', filter: `task_code=eq.${code}` }, ({ old: row }) => {
-        const id = (row as Record<string, unknown>).id as string;
-        setTasksRaw(prev => {
-          const next = prev.filter(t => t.id !== id);
-          tasksRef.current = next;
-          setCached(code, next);
-          return next;
-        });
+      .on('broadcast', { event: 'change' }, () => {
+        // Secondary: full reload when another device broadcasts a change
+        dbFetchTasks(code).then(remote => { if (remote.length > 0) setTasks(remote); }).catch(() => {});
       })
       .subscribe((status) => {
         if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
           setTimeout(() => { if (codeRef.current) loadAndSubscribe(codeRef.current); }, 4000);
         }
       });
+  }
+
+  function notifyChange() {
+    channelRef.current?.send({ type: 'broadcast', event: 'change', payload: {} });
   }
 
   // ── Auth (code-based) ─────────────────────────────────────────────────────
@@ -197,7 +203,9 @@ export default function App() {
     const updated = { ...task, completed: !task.completed };
     setTasks(tasksRef.current.map(t => t.id === id ? updated : t));
     if (navigator.onLine) {
-      dbUpsertTask(updated, codeRef.current).catch(() => enqueue({ type: 'upsert', task: updated, code: codeRef.current }));
+      dbUpsertTask(updated, codeRef.current)
+        .then(() => notifyChange())
+        .catch(() => enqueue({ type: 'upsert', task: updated, code: codeRef.current }));
     } else {
       enqueue({ type: 'upsert', task: updated, code: codeRef.current });
     }
@@ -212,7 +220,9 @@ export default function App() {
       : [...tasksRef.current, task];
     setTasks(next);
     if (navigator.onLine) {
-      dbUpsertTask(task, codeRef.current).catch(() => enqueue({ type: 'upsert', task, code: codeRef.current }));
+      dbUpsertTask(task, codeRef.current)
+        .then(() => notifyChange())
+        .catch(() => enqueue({ type: 'upsert', task, code: codeRef.current }));
     } else {
       enqueue({ type: 'upsert', task, code: codeRef.current });
     }
@@ -224,7 +234,9 @@ export default function App() {
     if (!id) return;
     setTasks(tasksRef.current.filter(t => t.id !== id));
     if (navigator.onLine) {
-      dbDeleteTask(id).catch(() => enqueue({ type: 'delete', id }));
+      dbDeleteTask(id)
+        .then(() => notifyChange())
+        .catch(() => enqueue({ type: 'delete', id }));
     } else {
       enqueue({ type: 'delete', id });
     }
