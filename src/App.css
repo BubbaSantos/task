@@ -1,0 +1,84 @@
+.app-shell {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  max-width: 430px;
+  margin: 0 auto;
+  background: var(--bg-app);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.app-header {
+  flex-shrink: 0;
+  padding: 52px 20px 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.app-title {
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+  margin: 0;
+  line-height: 1;
+}
+
+.header-icon-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+  flex-shrink: 0;
+}
+
+.filter-row {
+  flex-shrink: 0;
+  padding: 16px 20px 0;
+}
+
+.task-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 20px 100px;
+  scrollbar-width: none;
+}
+.task-scroll::-webkit-scrollbar { display: none; }
+
+.empty-state {
+  text-align: center;
+  padding: 60px 0;
+  color: var(--text-secondary);
+  font-size: 15px;
+}
+
+.fab {
+  position: absolute;
+  bottom: 26px;
+  right: 20px;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 16px oklch(0.5 0.14 260 / 0.4);
+  z-index: 10;
+  transition: transform 150ms, box-shadow 150ms;
+}
+.fab:active {
+  transform: scale(0.94);
+  box-shadow: 0 2px 8px oklch(0.5 0.14 260 / 0.3);
+}

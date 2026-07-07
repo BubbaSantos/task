@@ -1,0 +1,60 @@
+:root {
+  --bg-app: oklch(0.965 0.004 80);
+  --surface: #ffffff;
+  --text-primary: oklch(0.22 0.01 80);
+  --text-secondary: oklch(0.5 0.01 80);
+  --text-tertiary: oklch(0.65 0.01 80);
+  --hairline: oklch(0.94 0.004 80);
+  --accent: oklch(0.5 0.14 260);
+  --accent-tint: oklch(0.94 0.03 260);
+  --overdue-text: oklch(0.55 0.19 30);
+  --overdue-bg: oklch(0.94 0.03 30);
+  --backdrop-dim: oklch(0.15 0.01 80 / 0.45);
+
+  --cat-work: oklch(0.6 0.12 260);
+  --cat-personal: oklch(0.6 0.12 150);
+  --cat-health: oklch(0.62 0.14 35);
+  --cat-errands: oklch(0.58 0.12 300);
+
+  --font-ui: 'IBM Plex Sans', sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+
+  --radius-card: 16px;
+  --radius-sheet: 28px;
+  --radius-pill: 100px;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--bg-app);
+  font-family: var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+#root {
+  height: 100%;
+}
+
+.msym {
+  font-family: 'Material Symbols Outlined';
+  font-weight: normal;
+  font-style: normal;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  direction: ltr;
+  -webkit-font-smoothing: antialiased;
+  font-size: 24px;
+}
