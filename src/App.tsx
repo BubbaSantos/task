@@ -570,7 +570,11 @@ export default function App() {
     setTasks(next);
     for (const t of completed) {
       broadcastDelete(t.id);
-      if (navigator.onLine) dbDeleteTask(t.id).catch(() => {});
+      if (navigator.onLine) {
+        dbDeleteTask(t.id).catch(() => enqueue({ type: 'delete', id: t.id }));
+      } else {
+        enqueue({ type: 'delete', id: t.id });
+      }
     }
   }
 
