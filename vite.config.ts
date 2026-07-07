@@ -13,16 +13,7 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       workbox: {
-        maximumFileSizeToCacheInBytes: 30 * 1024 * 1024,
-        globIgnores: ['**/*.wasm'],
         navigateFallbackDenylist: [/^\/api\//],
-        runtimeCaching: [{
-          urlPattern: /^https:\/\/huggingface\.co\/.*/,
-          handler: 'NetworkOnly',
-        }, {
-          urlPattern: /^https:\/\/cdn-lfs.*\.huggingface\.co\/.*/,
-          handler: 'NetworkOnly',
-        }],
       },
       manifest: {
         name: 'Task',

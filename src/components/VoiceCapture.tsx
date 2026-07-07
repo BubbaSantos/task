@@ -6,12 +6,11 @@ import styles from './VoiceCapture.module.css';
 interface Props {
   state: VoiceCaptureState;
   elapsedMs: number;
-  loadProgress: number;
   onStop: (blob: Blob) => void;
   onCancel: () => void;
 }
 
-export function VoiceCapture({ state, elapsedMs, loadProgress, onStop, onCancel }: Props) {
+export function VoiceCapture({ state, elapsedMs, onStop, onCancel }: Props) {
   const [waveHeights, setWaveHeights] = useState([8, 18, 26, 34, 28, 16, 10, 20]);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -76,28 +75,6 @@ export function VoiceCapture({ state, elapsedMs, loadProgress, onStop, onCancel 
   }
 
   if (state === 'idle') return null;
-
-  if (state === 'loading') {
-    return (
-      <div className={styles.backdrop}>
-        <div className={styles.sheet} role="dialog" aria-label="Loading model">
-          <div className={styles.handle} />
-          <div className={styles.listeningLabel} style={{ color: 'var(--text-secondary)' }}>
-            Loading Whisper…
-          </div>
-          <div className={styles.progressTrack}>
-            <div className={styles.progressBar} style={{ width: `${loadProgress}%` }} />
-          </div>
-          <p className={styles.progressNote}>
-            Downloading model (~400 MB) — cached after first use
-          </p>
-          <button className={`${styles.iconBtn} ${styles.cancel}`} style={{ marginTop: 8 }} onClick={onCancel}>
-            <span className="msym" style={{ fontSize: 24 }}>close</span>
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   if (state === 'transcribing') {
     return (

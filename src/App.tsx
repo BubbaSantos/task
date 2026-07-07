@@ -92,7 +92,6 @@ export default function App() {
   const [categories, setCategories] = useState<Category[]>(DEFAULT_CATEGORIES);
   const [activeCategoryFilter, setActiveCategoryFilter] = useState<string | null>(null);
   const [voiceCaptureState, setVoiceCaptureState] = useState<VoiceCaptureState>('idle');
-  const [loadProgress, setLoadProgress] = useState(0);
   const [recordingElapsedMs, setRecordingElapsedMs] = useState(0);
   const [taskSheet, setTaskSheet] = useState<{ task?: Task; prefillTitle?: string; parsed?: ParsedTask } | null>(null);
   const [showSettings, setShowSettings] = useState(false);
@@ -111,8 +110,6 @@ export default function App() {
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
-  const workerRef = useRef<Worker | null>(null);
-  const workerReadyRef = useRef(false);
   const codeRef = useRef('');
   const tasksRef = useRef<Task[]>([]);
   const nameRef = useRef('');
@@ -241,34 +238,27 @@ export default function App() {
     channelRef.current?.send({ type: 'broadcast', event: 'task-delete', payload: { id } });
   }
 
-  // ── Whisper worker ────────────────────────────────────────────────────────
-  function getWorker(): Worker {
-    if (!workerRef.current) {
-      const w = new Worker(new URL('./workers/transcribe.worker.ts', import.meta.url), { type: 'module' });
-      w.onmessage = (e: MessageEvent) => {
-        const { type, progress, text, error } = e.data;
-        if (type === 'load-progress') setLoadProgress(Math.round(progress ?? 0));
-        if (type === 'ready') { workerReadyRef.current = true; setLoadProgress(100); }
-        if (type === 'result') parseTranscript(text as string);
-        if (type === 'error') {
-          console.error('[whisper] error:', error);
-          setVoiceCaptureState('idle');
-        }
-      };
-      workerRef.current = w;
-    }
-    return workerRef.current;
-  }
-
+  // ── Groq Whisper transcription ────────────────────────────────────────────
   async function handleVoiceBlob(blob: Blob) {
     setVoiceCaptureState('transcribing');
-    const worker = getWorker();
-    const arrayBuffer = await blob.arrayBuffer();
-    const audioCtx = new AudioContext({ sampleRate: 16000 });
-    const decoded = await audioCtx.decodeAudioData(arrayBuffer);
-    const audio = decoded.getChannelData(0);
-    await audioCtx.close();
-    worker.postMessage({ type: 'transcribe', audio }, [audio.buffer]);
+    try {
+      const form = new FormData();
+      form.append('audio', blob, 'audio.webm');
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/transcribe`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+        },
+        body: form,
+      });
+      const { text, error } = await res.json();
+      if (error) throw new Error(error);
+      await parseTranscript(text ?? '');
+    } catch (err) {
+      console.error('[transcribe] error:', err);
+      setVoiceCaptureState('idle');
+    }
   }
 
   async function parseTranscript(text: string) {
@@ -434,7 +424,7 @@ export default function App() {
 
   // ── Voice timer ───────────────────────────────────────────────────────────
   useEffect(() => {
-    if (voiceCaptureState === 'listening' || voiceCaptureState === 'loading') {
+    if (voiceCaptureState === 'listening') {
       setRecordingElapsedMs(0);
       timerRef.current = setInterval(() => setRecordingElapsedMs(ms => ms + 1000), 1000);
     } else {
@@ -444,17 +434,7 @@ export default function App() {
   }, [voiceCaptureState]);
 
   function handleMicTap() {
-    const worker = getWorker();
-    if (!workerReadyRef.current) {
-      setLoadProgress(0);
-      setVoiceCaptureState('loading');
-      worker.postMessage({ type: 'preload' });
-      const interval = setInterval(() => {
-        if (workerReadyRef.current) { clearInterval(interval); setVoiceCaptureState('listening'); }
-      }, 300);
-    } else {
-      setVoiceCaptureState('listening');
-    }
+    setVoiceCaptureState('listening');
   }
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -557,7 +537,6 @@ export default function App() {
       <VoiceCapture
         state={voiceCaptureState}
         elapsedMs={recordingElapsedMs}
-        loadProgress={loadProgress}
         onStop={handleVoiceBlob}
         onCancel={() => setVoiceCaptureState('idle')}
       />

@@ -14,6 +14,6 @@ export interface Category {
   colour: string;
 }
 
-export type VoiceCaptureState = 'idle' | 'loading' | 'listening' | 'transcribing' | 'parsing';
+export type VoiceCaptureState = 'idle' | 'listening' | 'transcribing' | 'parsing';
 
 export type DateBucket = 'overdue' | 'today' | 'tomorrow' | 'upcoming' | 'none';
