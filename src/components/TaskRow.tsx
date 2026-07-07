@@ -6,6 +6,7 @@ import styles from './TaskRow.module.css';
 
 const SNAP = 80;
 const AUTO = 220;
+const PENDING_MS = 2500;
 
 interface Props {
   task: Task;
@@ -22,10 +23,15 @@ export function TaskRow({ task, category, isLast, onToggle, onOpen, onDelete }: 
 
   const [tx, _setTx] = useState(0);
   const [animate, setAnimate] = useState(false);
+  const [pendingCheck, setPendingCheck] = useState(false);
   const txRef = useRef(0);
   const rowRef = useRef<HTMLDivElement>(null);
+  const pendingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onDeleteRef = useRef(onDelete);
   useEffect(() => { onDeleteRef.current = onDelete; }, [onDelete]);
+
+  // Clear pending state on unmount
+  useEffect(() => () => { if (pendingTimerRef.current) clearTimeout(pendingTimerRef.current); }, []);
 
   function setTx(v: number) { txRef.current = v; _setTx(v); }
 
@@ -74,9 +80,27 @@ export function TaskRow({ task, category, isLast, onToggle, onOpen, onDelete }: 
     };
   }, [task.id]);
 
-  function handleContentClick() {
-    if (txRef.current !== 0) { setAnimate(true); setTx(0); return; }
-    onOpen(task);
+  function handleCheckboxClick(e: React.MouseEvent) {
+    e.stopPropagation();
+
+    // Un-checking needs no confirmation
+    if (task.completed) {
+      onToggle(task.id);
+      return;
+    }
+
+    if (pendingCheck) {
+      if (pendingTimerRef.current) clearTimeout(pendingTimerRef.current);
+      setPendingCheck(false);
+      onToggle(task.id);
+    } else {
+      setPendingCheck(true);
+      pendingTimerRef.current = setTimeout(() => setPendingCheck(false), PENDING_MS);
+    }
+  }
+
+  function handleRowClick() {
+    if (txRef.current !== 0) { setAnimate(true); setTx(0); }
   }
 
   function handleDeleteClick() {
@@ -94,17 +118,28 @@ export function TaskRow({ task, category, isLast, onToggle, onOpen, onDelete }: 
         ref={rowRef}
         className={`${styles.row} ${animate ? styles.animate : ''}`}
         style={{ transform: `translateX(${tx}px)` }}
+        onClick={handleRowClick}
       >
-        <button
-          className={`${styles.checkbox} ${task.completed ? styles.checked : ''}`}
-          style={task.completed ? {} : { borderColor: category?.colour }}
-          onClick={e => { e.stopPropagation(); onToggle(task.id); }}
-          aria-label={task.completed ? 'Mark incomplete' : 'Mark complete'}
-        >
-          {task.completed && <span className="msym" style={{ fontSize: 14, color: '#fff' }}>check</span>}
-        </button>
+        <div className={styles.checkWrap}>
+          <button
+            className={`${styles.checkbox} ${task.completed ? styles.checked : ''} ${pendingCheck ? styles.pending : ''}`}
+            style={task.completed || pendingCheck ? {} : { borderColor: category?.colour }}
+            onClick={handleCheckboxClick}
+            aria-label={task.completed ? 'Mark incomplete' : 'Mark complete'}
+          >
+            {task.completed && <span className="msym" style={{ fontSize: 14, color: '#fff' }}>check</span>}
+            {pendingCheck && !task.completed && (
+              <svg className={styles.countdownRing} viewBox="0 0 22 22">
+                <circle cx="11" cy="11" r="9" />
+              </svg>
+            )}
+          </button>
+          {pendingCheck && (
+            <span className={styles.tapAgain}>Tap again</span>
+          )}
+        </div>
 
-        <div className={styles.content} onClick={handleContentClick}>
+        <div className={styles.content}>
           <div className={`${styles.title} ${task.completed ? styles.completed : ''}`}>
             {task.title}
           </div>
@@ -131,6 +166,14 @@ export function TaskRow({ task, category, isLast, onToggle, onOpen, onDelete }: 
             })}
           </div>
         </div>
+
+        <button
+          className={styles.viewBtn}
+          onClick={e => { e.stopPropagation(); onOpen(task); }}
+          aria-label="View task"
+        >
+          <span className="msym" style={{ fontSize: 19 }}>visibility</span>
+        </button>
       </div>
     </div>
   );
