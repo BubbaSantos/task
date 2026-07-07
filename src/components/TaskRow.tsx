@@ -18,13 +18,13 @@ export function TaskRow({ task, category, isLast, onToggle }: Props) {
       <button
         className={`${styles.checkbox} ${task.completed ? styles.checked : ''}`}
         style={task.completed ? {} : { borderColor: category?.colour }}
-        onClick={() => onToggle(task.id)}
+        onClick={e => { e.stopPropagation(); onToggle(task.id); }}
         aria-label={task.completed ? 'Mark incomplete' : 'Mark complete'}
       >
         {task.completed && <span className="msym" style={{ fontSize: 14, color: '#fff' }}>check</span>}
       </button>
 
-      <div className={styles.content}>
+      <div className={styles.content} onClick={() => window.location.reload()}>
         <div className={`${styles.title} ${task.completed ? styles.completed : ''}`}>
           {task.title}
         </div>

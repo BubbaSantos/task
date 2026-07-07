@@ -5,6 +5,7 @@ import { getDateBucket } from './utils/dates';
 import { CategoryFilter } from './components/CategoryFilter';
 import { TaskGroup } from './components/TaskGroup';
 import { VoiceCapture } from './components/VoiceCapture';
+import { VersionBadge } from './components/VersionBadge';
 import './App.css';
 
 const STORAGE_KEY = 'task-app-tasks';
@@ -127,6 +128,8 @@ export default function App() {
           <div className="empty-state">No tasks here.</div>
         )}
       </div>
+
+      <VersionBadge />
 
       <button className="fab" onClick={handleFabClick} aria-label="Start voice capture">
         <span className="msym" style={{ fontSize: 28, color: '#fff' }}>mic</span>
