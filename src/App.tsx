@@ -207,6 +207,8 @@ export default function App() {
           const next = exists ? prev.map(t => t.id === task.id ? task : t) : [...prev, task];
           tasksRef.current = next; setCached(code, next); return next;
         });
+        // Relay to Supabase so QuickShell bar and other REST clients stay in sync
+        if (navigator.onLine) dbUpsertTask(task, code).catch(() => {});
       })
       .on('broadcast', { event: 'task-delete' }, ({ payload }) => {
         const id = payload.id as string;
@@ -214,6 +216,7 @@ export default function App() {
           const next = prev.filter(t => t.id !== id);
           tasksRef.current = next; setCached(code, next); return next;
         });
+        if (navigator.onLine) dbDeleteTask(id).catch(() => {});
       })
       .on('broadcast', { event: 'sync-request' }, () => {
         // A new member joined — send them our full task list
@@ -230,6 +233,10 @@ export default function App() {
           const next = Array.from(map.values());
           tasksRef.current = next; setCached(code, next); return next;
         });
+        // Persist any tasks we didn't already have to Supabase
+        if (navigator.onLine) {
+          for (const t of incoming) dbUpsertTask(t, code).catch(() => {});
+        }
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'todo_tasks' }, (payload) => {
         const newRow = (payload.new ?? {}) as Record<string, unknown>;
