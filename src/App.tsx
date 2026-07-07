@@ -96,7 +96,7 @@ export default function App() {
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
-        table: 'tasks',
+        table: 'todo_tasks',
         filter: `user_id=eq.${user.id}`,
       }, () => {
         dbFetchTasks(user.id).then(remote => {

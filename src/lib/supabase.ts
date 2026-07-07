@@ -44,7 +44,7 @@ function toRow(task: Task, userId: string): Omit<TaskRow, 'created_at'> {
 // ── CRUD ────────────────────────────────────────────────────────────────────
 export async function dbFetchTasks(userId: string): Promise<Task[]> {
   const { data, error } = await supabase
-    .from('tasks')
+    .from('todo_tasks')
     .select('*')
     .eq('user_id', userId)
     .order('created_at', { ascending: true });
@@ -53,17 +53,17 @@ export async function dbFetchTasks(userId: string): Promise<Task[]> {
 }
 
 export async function dbUpsertTask(task: Task, userId: string): Promise<void> {
-  const { error } = await supabase.from('tasks').upsert(toRow(task, userId));
+  const { error } = await supabase.from('todo_tasks').upsert(toRow(task, userId));
   if (error) throw error;
 }
 
 export async function dbUpsertTasks(tasks: Task[], userId: string): Promise<void> {
   if (!tasks.length) return;
-  const { error } = await supabase.from('tasks').upsert(tasks.map(t => toRow(t, userId)));
+  const { error } = await supabase.from('todo_tasks').upsert(tasks.map(t => toRow(t, userId)));
   if (error) throw error;
 }
 
 export async function dbDeleteTask(id: string): Promise<void> {
-  const { error } = await supabase.from('tasks').delete().eq('id', id);
+  const { error } = await supabase.from('todo_tasks').delete().eq('id', id);
   if (error) throw error;
 }
