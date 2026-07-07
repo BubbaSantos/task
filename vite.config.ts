@@ -22,6 +22,7 @@ export default defineConfig({
         orientation: 'portrait',
         icons: [
           { src: '/favicon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any maskable' },
+          { src: '/task/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
         ],
       },
     }),
