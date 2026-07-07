@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Task, VoiceCaptureState } from './types';
-import { DEFAULT_CATEGORIES } from './data';
+import type { Task, Category, VoiceCaptureState } from './types';
+import { DEFAULT_CATEGORIES, CATEGORY_COLOURS } from './data';
 import { getDateBucket } from './utils/dates';
 import { supabase, rowToTask, dbFetchTasks, dbUpsertTask, dbDeleteTask } from './lib/supabase';
 import { tagColor } from './utils/tagColor';
@@ -16,21 +16,36 @@ import './App.css';
 const CODE_KEY = 'task-code';
 const NAME_KEY = 'task-username';
 const cacheKey = (c: string) => `task-cache-${c}`;
-const tagsKey = (c: string) => `task-tags-${c}`;
+const categoriesKey = (c: string) => `task-categories-${c}`;
+const tagsKey = (c: string, catId: string) => `task-tags-${c}-${catId}`;
 const instructionsKey = (c: string) => `task-parse-instructions-${c}`;
 const QUEUE_KEY = 'task-queue';
 
-// ── Known tags ────────────────────────────────────────────────────────────────
-function getKnownTags(code: string): string[] {
-  try { return JSON.parse(localStorage.getItem(tagsKey(code)) || '[]'); } catch { return []; }
+// ── Category storage ──────────────────────────────────────────────────────────
+function getCategories(code: string): Category[] {
+  try {
+    const s = localStorage.getItem(categoriesKey(code));
+    return s ? JSON.parse(s) : DEFAULT_CATEGORIES;
+  } catch { return DEFAULT_CATEGORIES; }
 }
-function saveKnownTags(code: string, tags: string[]) {
-  try { localStorage.setItem(tagsKey(code), JSON.stringify(tags)); } catch {}
+function saveCategories(code: string, cats: Category[]) {
+  try { localStorage.setItem(categoriesKey(code), JSON.stringify(cats)); } catch {}
 }
-function mergeKnownTags(code: string, newTags: string[]): string[] {
-  const merged = Array.from(new Set([...getKnownTags(code), ...newTags]));
-  saveKnownTags(code, merged);
+
+// ── Per-category tag storage ──────────────────────────────────────────────────
+function getTags(code: string, catId: string): string[] {
+  try { return JSON.parse(localStorage.getItem(tagsKey(code, catId)) || '[]'); } catch { return []; }
+}
+function saveTags(code: string, catId: string, tags: string[]) {
+  try { localStorage.setItem(tagsKey(code, catId), JSON.stringify(tags)); } catch {}
+}
+function mergeTags(code: string, catId: string, newTags: string[]): string[] {
+  const merged = Array.from(new Set([...getTags(code, catId), ...newTags]));
+  saveTags(code, catId, merged);
   return merged;
+}
+function getAllTagsByCategory(code: string, cats: Category[]): Record<string, string[]> {
+  return Object.fromEntries(cats.map(c => [c.id, getTags(code, c.id)]));
 }
 
 // ── Offline queue ─────────────────────────────────────────────────────────────
@@ -69,21 +84,30 @@ function setCached(code: string, tasks: Task[]) {
 
 const BUCKET_ORDER = ['overdue', 'today', 'tomorrow', 'upcoming', 'none'] as const;
 
+interface ParsedTask { title: string; categoryId: string; dueDate: string | null; tags: string[]; notes: string; }
+
 export default function App() {
   const [view, setView] = useState<'booting' | 'setup' | 'ready'>('booting');
   const [tasks, setTasksRaw] = useState<Task[]>([]);
+  const [categories, setCategories] = useState<Category[]>(DEFAULT_CATEGORIES);
   const [activeCategoryFilter, setActiveCategoryFilter] = useState<string | null>(null);
   const [voiceCaptureState, setVoiceCaptureState] = useState<VoiceCaptureState>('idle');
   const [loadProgress, setLoadProgress] = useState(0);
   const [recordingElapsedMs, setRecordingElapsedMs] = useState(0);
-  interface ParsedTask { title: string; categoryId: string; dueDate: string | null; tags: string[]; notes: string; }
   const [taskSheet, setTaskSheet] = useState<{ task?: Task; prefillTitle?: string; parsed?: ParsedTask } | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showManageTags, setShowManageTags] = useState(false);
+  const [showManageCategories, setShowManageCategories] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false);
   const [parseInstructions, setParseInstructions] = useState('');
-  const [knownTags, setKnownTags] = useState<string[]>([]);
+  const [knownTagsByCategory, setKnownTagsByCategory] = useState<Record<string, string[]>>({});
   const [codeCopied, setCodeCopied] = useState(false);
+
+  // Manage categories UI state
+  const [editingCat, setEditingCat] = useState<Category | null>(null);
+  const [newCatName, setNewCatName] = useState('');
+  const [newCatColour, setNewCatColour] = useState(CATEGORY_COLOURS[0]);
+  const [addingCat, setAddingCat] = useState(false);
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
@@ -92,12 +116,22 @@ export default function App() {
   const codeRef = useRef('');
   const tasksRef = useRef<Task[]>([]);
   const nameRef = useRef('');
+  const categoriesRef = useRef<Category[]>(DEFAULT_CATEGORIES);
 
-  // Keep tasksRef in sync
   function setTasks(next: Task[]) {
     tasksRef.current = next;
     setTasksRaw(next);
     if (codeRef.current) setCached(codeRef.current, next);
+  }
+
+  function updateCategories(cats: Category[]) {
+    categoriesRef.current = cats;
+    setCategories(cats);
+    if (codeRef.current) saveCategories(codeRef.current, cats);
+  }
+
+  function refreshTags(code: string, cats: Category[]) {
+    setKnownTagsByCategory(getAllTagsByCategory(code, cats));
   }
 
   // ── Boot ──────────────────────────────────────────────────────────────────
@@ -116,9 +150,12 @@ export default function App() {
   async function loadAndSubscribe(code: string) {
     channelRef.current?.unsubscribe();
 
-    // Show cached tasks immediately
     const cached = getCached(code);
     if (cached.length > 0) { tasksRef.current = cached; setTasksRaw(cached); }
+
+    const cats = getCategories(code);
+    categoriesRef.current = cats;
+    setCategories(cats);
 
     if (navigator.onLine) {
       await flushQueue();
@@ -126,7 +163,6 @@ export default function App() {
       try {
         const remote = await dbFetchTasks(code);
         if (remote.length > 0) {
-          // Merge any pending upserts that haven't hit DB yet
           if (pendingOps.length > 0) {
             const remoteIds = new Set(remote.map(t => t.id));
             const pendingTasks = pendingOps
@@ -138,25 +174,21 @@ export default function App() {
             setTasks(remote);
           }
         } else if (pendingOps.length === 0) {
-          // DB empty and no pending writes — list is genuinely empty
           setTasks([]);
         }
-        // else: DB empty but queue has writes — keep local cache until flush succeeds
       } catch (err) {
         console.error('Failed to fetch tasks:', err);
       }
     }
 
-    setKnownTags(getKnownTags(code));
+    refreshTags(code, cats);
     setParseInstructions(localStorage.getItem(instructionsKey(code)) ?? '');
     setView('ready');
 
     channelRef.current = supabase
       .channel(`tasks:${code}`)
-      // Broadcast: primary sync — receives full task data instantly, no DB round-trip needed
       .on('broadcast', { event: 'task-upsert' }, ({ payload }) => {
         const task = payload.task as Task;
-        console.log('[sync] broadcast task-upsert', task.id);
         setTasksRaw(prev => {
           const exists = prev.some(t => t.id === task.id);
           const next = exists ? prev.map(t => t.id === task.id ? task : t) : [...prev, task];
@@ -165,18 +197,14 @@ export default function App() {
       })
       .on('broadcast', { event: 'task-delete' }, ({ payload }) => {
         const id = payload.id as string;
-        console.log('[sync] broadcast task-delete', id);
         setTasksRaw(prev => {
           const next = prev.filter(t => t.id !== id);
           tasksRef.current = next; setCached(code, next); return next;
         });
       })
-      // postgres_changes: fallback sync for reconnects / missed broadcasts
       .on('postgres_changes', { event: '*', schema: 'public', table: 'todo_tasks' }, (payload) => {
         const newRow = (payload.new ?? {}) as Record<string, unknown>;
         const oldRow = (payload.old ?? {}) as Record<string, unknown>;
-        console.log('[sync] postgres_changes', payload.eventType);
-
         if (payload.eventType === 'INSERT' && newRow.task_code === code) {
           const task = rowToTask(newRow);
           setTasksRaw(prev => {
@@ -199,7 +227,6 @@ export default function App() {
         }
       })
       .subscribe((status) => {
-        console.log('[sync] channel status:', status);
         if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
           setTimeout(() => { if (codeRef.current) loadAndSubscribe(codeRef.current); }, 4000);
         }
@@ -250,6 +277,7 @@ export default function App() {
     try {
       const today = new Date().toISOString().slice(0, 10);
       const fnUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/parse-task`;
+      const allTags = Object.values(knownTagsByCategory).flat();
       const res = await fetch(fnUrl, {
         method: 'POST',
         headers: {
@@ -257,14 +285,13 @@ export default function App() {
           'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
           'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
         },
-        body: JSON.stringify({ transcript: text, today, instructions: parseInstructions, knownTags }),
+        body: JSON.stringify({ transcript: text, today, instructions: parseInstructions, knownTags: allTags }),
       });
       const payload = await res.json();
       if (res.ok && payload.title) {
         setVoiceCaptureState('idle');
         setTaskSheet({ parsed: payload });
       } else {
-        console.error('[parse-task] error:', payload);
         throw new Error(payload.error ?? 'parse failed');
       }
     } catch (err) {
@@ -291,7 +318,8 @@ export default function App() {
     if (code) localStorage.removeItem(cacheKey(code));
     codeRef.current = '';
     setTasks([]);
-    setKnownTags([]);
+    setKnownTagsByCategory({});
+    setCategories(DEFAULT_CATEGORIES);
     setShowSettings(false);
     setView('setup');
   }
@@ -302,7 +330,7 @@ export default function App() {
     setTimeout(() => setCodeCopied(false), 2000);
   }
 
-  // ── Task CRUD (optimistic + sync) ─────────────────────────────────────────
+  // ── Task CRUD ─────────────────────────────────────────────────────────────
   const handleToggle = useCallback((id: string) => {
     const task = tasksRef.current.find(t => t.id === id);
     if (!task) return;
@@ -321,7 +349,10 @@ export default function App() {
     const task: Task = draft.id
       ? { ...draft, id: draft.id }
       : { ...draft, id: crypto.randomUUID() };
-    if (task.tags.length) setKnownTags(mergeKnownTags(codeRef.current, task.tags));
+    if (task.tags.length) {
+      const merged = mergeTags(codeRef.current, task.categoryId, task.tags);
+      setKnownTagsByCategory(prev => ({ ...prev, [task.categoryId]: merged }));
+    }
     const next = draft.id
       ? tasksRef.current.map(t => t.id === task.id ? task : t)
       : [...tasksRef.current, task];
@@ -354,6 +385,52 @@ export default function App() {
   }
 
   const handleOpenTask = useCallback((task: Task) => setTaskSheet({ task }), []);
+
+  // ── Category CRUD ─────────────────────────────────────────────────────────
+  function handleAddCategory() {
+    const name = newCatName.trim();
+    if (!name) return;
+    const cat: Category = { id: crypto.randomUUID(), name, colour: newCatColour };
+    const next = [...categoriesRef.current, cat];
+    updateCategories(next);
+    setNewCatName('');
+    setNewCatColour(CATEGORY_COLOURS[0]);
+    setAddingCat(false);
+  }
+
+  function handleDeleteCategory(id: string) {
+    const next = categoriesRef.current.filter(c => c.id !== id);
+    updateCategories(next);
+    // Reassign tasks in deleted category to first remaining category
+    const fallbackId = next[0]?.id;
+    if (fallbackId) {
+      const updated = tasksRef.current.map(t =>
+        t.categoryId === id ? { ...t, categoryId: fallbackId } : t
+      );
+      setTasks(updated);
+      updated.filter(t => t.categoryId === fallbackId).forEach(task => {
+        broadcastUpsert(task);
+        if (navigator.onLine) dbUpsertTask(task, codeRef.current).catch(() => enqueue({ type: 'upsert', task, code: codeRef.current }));
+      });
+    }
+    if (activeCategoryFilter === id) setActiveCategoryFilter(null);
+  }
+
+  function handleSaveEditCat() {
+    if (!editingCat) return;
+    const next = categoriesRef.current.map(c =>
+      c.id === editingCat.id ? editingCat : c
+    );
+    updateCategories(next);
+    setEditingCat(null);
+  }
+
+  // ── Tag CRUD ──────────────────────────────────────────────────────────────
+  function handleDeleteTag(catId: string, tag: string) {
+    const current = getTags(codeRef.current, catId).filter(t => t !== tag);
+    saveTags(codeRef.current, catId, current);
+    setKnownTagsByCategory(prev => ({ ...prev, [catId]: current }));
+  }
 
   // ── Voice timer ───────────────────────────────────────────────────────────
   useEffect(() => {
@@ -404,7 +481,6 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      {/* Settings overlay — tap outside to close */}
       {showSettings && (
         <div className="settings-overlay" onClick={() => setShowSettings(false)} />
       )}
@@ -418,7 +494,6 @@ export default function App() {
         </div>
       </div>
 
-      {/* Settings popover */}
       {showSettings && (
         <div className="settings-popover">
           <div className="settings-row">
@@ -434,6 +509,7 @@ export default function App() {
             </div>
           )}
           <button className="settings-action-btn" onClick={() => { setShowSettings(false); setShowInstructions(true); }}>Voice parsing instructions</button>
+          <button className="settings-action-btn" onClick={() => { setShowSettings(false); setShowManageCategories(true); }}>Manage categories</button>
           <button className="settings-action-btn" onClick={() => { setShowSettings(false); setShowManageTags(true); }}>Manage tags</button>
           <button className="settings-leave-btn" onClick={handleLeave}>Leave this list</button>
         </div>
@@ -441,7 +517,7 @@ export default function App() {
 
       <div className="filter-row">
         <CategoryFilter
-          categories={DEFAULT_CATEGORIES}
+          categories={categories}
           active={activeCategoryFilter}
           onChange={setActiveCategoryFilter}
         />
@@ -453,7 +529,7 @@ export default function App() {
             key={bucket}
             bucket={bucket}
             tasks={grouped[bucket] ?? []}
-            categories={DEFAULT_CATEGORIES}
+            categories={categories}
             onToggle={handleToggle}
             onOpen={handleOpenTask}
             onDelete={handleDeleteById}
@@ -486,6 +562,7 @@ export default function App() {
         onCancel={() => setVoiceCaptureState('idle')}
       />
 
+      {/* ── Voice parsing instructions ── */}
       {showInstructions && (
         <div className="manage-overlay" onClick={e => e.target === e.currentTarget && setShowInstructions(false)}>
           <div className="manage-sheet">
@@ -500,7 +577,7 @@ export default function App() {
             </p>
             <textarea
               className="instructions-input"
-              placeholder={'Examples:\n• Tag anything admin-related with #admin\n• "ping" means send a message — category work\n• Groceries always go in errands with tag #shopping\n• Morning tasks are usually health category'}
+              placeholder={'Examples:\n• Tag anything admin-related with #admin\n• "ping" means send a message — category work\n• Groceries always go in errands with tag #shopping'}
               value={parseInstructions}
               onChange={e => setParseInstructions(e.target.value)}
               rows={8}
@@ -515,6 +592,101 @@ export default function App() {
         </div>
       )}
 
+      {/* ── Manage categories ── */}
+      {showManageCategories && (
+        <div className="manage-overlay" onClick={e => e.target === e.currentTarget && setShowManageCategories(false)}>
+          <div className="manage-sheet">
+            <div className="manage-header">
+              <span className="manage-title">Manage categories</span>
+              <button className="header-icon-btn" onClick={() => setShowManageCategories(false)} aria-label="Close">
+                <span className="msym" style={{ fontSize: 20 }}>close</span>
+              </button>
+            </div>
+
+            <div className="manage-cat-list">
+              {categories.map(cat => (
+                <div key={cat.id} className="manage-cat-row">
+                  {editingCat?.id === cat.id ? (
+                    <>
+                      <input
+                        className="manage-cat-name-input"
+                        value={editingCat.name}
+                        onChange={e => setEditingCat({ ...editingCat, name: e.target.value })}
+                        onKeyDown={e => { if (e.key === 'Enter') handleSaveEditCat(); }}
+                      />
+                      <div className="manage-colour-row">
+                        {CATEGORY_COLOURS.map(col => (
+                          <button
+                            key={col}
+                            className={`manage-colour-swatch ${editingCat.colour === col ? 'active' : ''}`}
+                            style={{ background: col }}
+                            onClick={() => setEditingCat({ ...editingCat, colour: col })}
+                            aria-label={col}
+                          />
+                        ))}
+                      </div>
+                      <div className="manage-cat-actions">
+                        <button className="manage-cat-save-btn" onClick={handleSaveEditCat}>Save</button>
+                        <button className="manage-cat-cancel-btn" onClick={() => setEditingCat(null)}>Cancel</button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <span className="manage-cat-dot" style={{ background: cat.colour }} />
+                      <span className="manage-cat-name">{cat.name}</span>
+                      <div className="manage-cat-btns">
+                        <button className="manage-tag-delete" onClick={() => setEditingCat({ ...cat })} aria-label={`Edit ${cat.name}`}>
+                          <span className="msym" style={{ fontSize: 18 }}>edit</span>
+                        </button>
+                        {categories.length > 1 && (
+                          <button className="manage-tag-delete" onClick={() => handleDeleteCategory(cat.id)} aria-label={`Delete ${cat.name}`}>
+                            <span className="msym" style={{ fontSize: 18 }}>delete</span>
+                          </button>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {addingCat ? (
+              <div className="manage-add-cat">
+                <input
+                  className="manage-cat-name-input"
+                  placeholder="Category name…"
+                  value={newCatName}
+                  onChange={e => setNewCatName(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') handleAddCategory(); }}
+                  autoFocus
+                />
+                <div className="manage-colour-row">
+                  {CATEGORY_COLOURS.map(col => (
+                    <button
+                      key={col}
+                      className={`manage-colour-swatch ${newCatColour === col ? 'active' : ''}`}
+                      style={{ background: col }}
+                      onClick={() => setNewCatColour(col)}
+                      aria-label={col}
+                    />
+                  ))}
+                </div>
+                <div className="manage-cat-actions">
+                  <button className="manage-cat-save-btn" onClick={handleAddCategory}>Add</button>
+                  <button className="manage-cat-cancel-btn" onClick={() => { setAddingCat(false); setNewCatName(''); }}>Cancel</button>
+                </div>
+              </div>
+            ) : (
+              <button className="manage-add-btn" onClick={() => setAddingCat(true)}>
+                <span className="msym" style={{ fontSize: 18 }}>add</span>
+                Add category
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Manage tags (per category) ── */}
       {showManageTags && (
         <div className="manage-overlay" onClick={e => e.target === e.currentTarget && setShowManageTags(false)}>
           <div className="manage-sheet">
@@ -524,23 +696,31 @@ export default function App() {
                 <span className="msym" style={{ fontSize: 20 }}>close</span>
               </button>
             </div>
-            {knownTags.length === 0 ? (
+            {categories.every(cat => (knownTagsByCategory[cat.id] ?? []).length === 0) ? (
               <p className="manage-empty">No tags yet. Add them when creating or editing a task.</p>
             ) : (
-              <div className="manage-tag-list">
-                {knownTags.map(tag => (
-                  <div key={tag} className="manage-tag-row">
-                    <span className="manage-tag-name" style={{ color: tagColor(tag).text }}>#{tag}</span>
-                    <button className="manage-tag-delete" onClick={() => {
-                      const next = knownTags.filter(t => t !== tag);
-                      setKnownTags(next);
-                      saveKnownTags(codeRef.current, next);
-                    }} aria-label={`Delete ${tag}`}>
-                      <span className="msym" style={{ fontSize: 18 }}>delete</span>
-                    </button>
+              categories.map(cat => {
+                const catTags = knownTagsByCategory[cat.id] ?? [];
+                if (!catTags.length) return null;
+                return (
+                  <div key={cat.id} className="manage-tags-section">
+                    <div className="manage-tags-cat-header">
+                      <span className="manage-cat-dot" style={{ background: cat.colour }} />
+                      <span className="manage-tags-cat-name">{cat.name}</span>
+                    </div>
+                    <div className="manage-tag-list">
+                      {catTags.map(tag => (
+                        <div key={tag} className="manage-tag-row">
+                          <span className="manage-tag-name" style={{ color: tagColor(tag).text }}>#{tag}</span>
+                          <button className="manage-tag-delete" onClick={() => handleDeleteTag(cat.id, tag)} aria-label={`Delete ${tag}`}>
+                            <span className="msym" style={{ fontSize: 18 }}>delete</span>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                ))}
-              </div>
+                );
+              })
             )}
           </div>
         </div>
@@ -551,8 +731,8 @@ export default function App() {
           task={taskSheet.task}
           prefillTitle={taskSheet.prefillTitle}
           parsed={taskSheet.parsed}
-          categories={DEFAULT_CATEGORIES}
-          knownTags={knownTags}
+          categories={categories}
+          knownTagsByCategory={knownTagsByCategory}
           onSave={handleTaskSheetSave}
           onDelete={taskSheet.task ? handleTaskDelete : undefined}
           onCancel={() => setTaskSheet(null)}

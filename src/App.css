@@ -309,3 +309,147 @@
   font-size: 14px;
   cursor: pointer;
 }
+
+/* ── Manage categories ─────────────────────────────────────────────────────── */
+.manage-cat-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.manage-cat-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--hairline);
+  flex-wrap: wrap;
+}
+.manage-cat-row:last-child { border-bottom: none; }
+
+.manage-cat-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.manage-cat-name {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text-primary);
+  flex: 1;
+}
+
+.manage-cat-btns {
+  display: flex;
+  gap: 6px;
+}
+
+.manage-cat-name-input {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-ui);
+  font-size: 15px;
+  color: var(--text-primary);
+  background: var(--hairline);
+  border: none;
+  border-radius: 10px;
+  padding: 8px 12px;
+  outline: none;
+}
+
+.manage-colour-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  width: 100%;
+  padding: 4px 0;
+}
+
+.manage-colour-swatch {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 3px solid transparent;
+  cursor: pointer;
+  padding: 0;
+  transition: border-color 150ms;
+}
+.manage-colour-swatch.active {
+  border-color: var(--text-primary);
+}
+
+.manage-cat-actions {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  padding-top: 4px;
+}
+
+.manage-cat-save-btn {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  padding: 8px 20px;
+  font-family: var(--font-ui);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.manage-cat-cancel-btn {
+  background: var(--hairline);
+  color: var(--text-secondary);
+  border: none;
+  border-radius: 12px;
+  padding: 8px 20px;
+  font-family: var(--font-ui);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.manage-add-cat {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 0;
+  border-top: 1px solid var(--hairline);
+}
+
+.manage-add-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-family: var(--font-ui);
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 4px 0;
+}
+
+/* ── Manage tags (per-category) ────────────────────────────────────────────── */
+.manage-tags-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.manage-tags-cat-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.manage-tags-cat-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}

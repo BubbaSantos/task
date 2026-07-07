@@ -16,17 +16,17 @@ interface TaskDraft {
 interface ParsedTask { title: string; categoryId: string; dueDate: string | null; tags: string[]; notes: string; }
 
 interface Props {
-  task?: Task;           // undefined = new task
-  prefillTitle?: string; // plain voice fallback
-  parsed?: ParsedTask;   // AI-parsed voice result
+  task?: Task;
+  prefillTitle?: string;
+  parsed?: ParsedTask;
   categories: Category[];
-  knownTags: string[];
+  knownTagsByCategory: Record<string, string[]>;
   onSave: (draft: TaskDraft) => void;
   onDelete?: () => void;
   onCancel: () => void;
 }
 
-export function TaskSheet({ task, prefillTitle, parsed, categories, knownTags, onSave, onDelete, onCancel }: Props) {
+export function TaskSheet({ task, prefillTitle, parsed, categories, knownTagsByCategory, onSave, onDelete, onCancel }: Props) {
   const today = new Date().toISOString().slice(0, 10);
   const [title, setTitle] = useState(task?.title ?? parsed?.title ?? prefillTitle ?? '');
   const [categoryId, setCategoryId] = useState(task?.categoryId ?? parsed?.categoryId ?? categories[0]?.id ?? '');
@@ -53,9 +53,10 @@ export function TaskSheet({ task, prefillTitle, parsed, categories, knownTags, o
     setTags(prev => prev.filter(x => x !== t));
   }
 
+  const catTags = knownTagsByCategory[categoryId] ?? [];
   const suggestions = tagInput
-    ? knownTags.filter(t => t.includes(tagInput.toLowerCase()) && !tags.includes(t))
-    : knownTags.filter(t => !tags.includes(t));
+    ? catTags.filter(t => t.includes(tagInput.toLowerCase()) && !tags.includes(t))
+    : catTags.filter(t => !tags.includes(t));
 
   // Auto-grow textarea
   function handleTitleChange(e: React.ChangeEvent<HTMLTextAreaElement>) {

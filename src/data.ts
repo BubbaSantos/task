@@ -1,10 +1,23 @@
 import type { Category, Task } from './types';
 
+// Real OKLCH values so categories can be serialised to JSON / localStorage
 export const DEFAULT_CATEGORIES: Category[] = [
-  { id: 'work',     name: 'Work',     colour: 'var(--cat-work)' },
-  { id: 'personal', name: 'Personal', colour: 'var(--cat-personal)' },
-  { id: 'health',   name: 'Health',   colour: 'var(--cat-health)' },
-  { id: 'errands',  name: 'Errands',  colour: 'var(--cat-errands)' },
+  { id: 'work',     name: 'Work',     colour: 'oklch(0.60 0.12 260)' },
+  { id: 'personal', name: 'Personal', colour: 'oklch(0.60 0.12 150)' },
+  { id: 'health',   name: 'Health',   colour: 'oklch(0.62 0.14 35)'  },
+  { id: 'errands',  name: 'Errands',  colour: 'oklch(0.58 0.12 300)' },
+];
+
+// Palette for new / edited categories
+export const CATEGORY_COLOURS: string[] = [
+  'oklch(0.60 0.12 260)', // blue
+  'oklch(0.60 0.12 150)', // green
+  'oklch(0.62 0.14 35)',  // orange
+  'oklch(0.58 0.12 300)', // purple
+  'oklch(0.60 0.14 20)',  // red
+  'oklch(0.60 0.12 200)', // teal
+  'oklch(0.62 0.14 90)',  // yellow
+  'oklch(0.60 0.12 340)', // pink
 ];
 
 const today = new Date();

@@ -1,6 +1,7 @@
 import { pipeline, env } from '@huggingface/transformers';
 
-// Use Hugging Face CDN; disable local model lookup
+// Force single-threaded WASM — avoids SharedArrayBuffer requirement (GitHub Pages has no COOP/COEP)
+if (env.backends.onnx.wasm) env.backends.onnx.wasm.numThreads = 1;
 env.allowLocalModels = false;
 
 type ASRPipeline = Awaited<ReturnType<typeof pipeline<'automatic-speech-recognition'>>>;
