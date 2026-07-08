@@ -125,6 +125,9 @@ export default function App() {
     return saved ?? 'due';
   });
   const [completedCollapsed, setCompletedCollapsed] = useState(false);
+  const [pullDistance, setPullDistance] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+  const [isPulling, setIsPulling] = useState(false);
 
   // Manage categories UI state
   const [editingCat, setEditingCat] = useState<Category | null>(null);
@@ -138,6 +141,7 @@ export default function App() {
   const tasksRef = useRef<Task[]>([]);
   const nameRef = useRef('');
   const categoriesRef = useRef<Category[]>(DEFAULT_CATEGORIES);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   function setTasks(next: Task[]) {
     tasksRef.current = next;
@@ -490,39 +494,98 @@ export default function App() {
 
   const handleOpenTask = useCallback((task: Task) => setTaskSheet({ task }), []);
 
+  // ── Manual/foreground refetch (shared by poll, visibility, and pull-to-refresh) ──
+  const refetchTasks = useCallback(async () => {
+    const code = codeRef.current;
+    if (!code || !navigator.onLine) return;
+    try {
+      const remote = await dbFetchTasks(code);
+      if (!remote.length) return;
+      setTasksRaw(prev => {
+        const remoteIds = new Set(remote.map(t => t.id));
+        const localOnly = prev.filter(t => !remoteIds.has(t.id));
+        const next = [...remote, ...localOnly];
+        if (JSON.stringify(next) === JSON.stringify(prev)) return prev;
+        tasksRef.current = next;
+        setCached(code, next);
+        return next;
+      });
+    } catch { /* ignore */ }
+  }, []);
+
   // ── Visibility / foreground refetch + background poll ────────────────────
   useEffect(() => {
-    const refetch = () => {
-      const code = codeRef.current;
-      if (!code || !navigator.onLine || document.visibilityState !== 'visible') return;
-      dbFetchTasks(code).then(remote => {
-        if (!remote.length) return;
-        setTasksRaw(prev => {
-          const remoteIds = new Set(remote.map(t => t.id));
-          const localOnly = prev.filter(t => !remoteIds.has(t.id));
-          const next = [...remote, ...localOnly];
-          if (JSON.stringify(next) === JSON.stringify(prev)) return prev;
-          tasksRef.current = next;
-          setCached(code, next);
-          return next;
-        });
-      }).catch(() => {});
+    const poll = () => {
+      if (document.visibilityState !== 'visible') return;
+      refetchTasks();
     };
 
     const onVisible = () => {
       if (document.visibilityState !== 'visible') return;
-      refetch();
+      refetchTasks();
       channelRef.current?.send({ type: 'broadcast', event: 'sync-request', payload: {} });
     };
 
     document.addEventListener('visibilitychange', onVisible);
     // Poll every 5s so bar-created tasks appear on phone without WebSocket dependency
-    const interval = setInterval(refetch, 5000);
+    const interval = setInterval(poll, 5000);
     return () => {
       document.removeEventListener('visibilitychange', onVisible);
       clearInterval(interval);
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [refetchTasks]);
+
+  // ── Pull-to-refresh ────────────────────────────────────────────────────────
+  const PULL_THRESHOLD = 64;
+  const PULL_MAX = 96;
+  const refreshingRef = useRef(false);
+  useEffect(() => { refreshingRef.current = refreshing; }, [refreshing]);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    let startY: number | null = null;
+    let dragging = false;
+
+    function onStart(e: TouchEvent) {
+      if (el!.scrollTop > 0 || refreshingRef.current) { startY = null; return; }
+      startY = e.touches[0].clientY;
+      dragging = false;
+    }
+    function onMove(e: TouchEvent) {
+      if (startY === null) return;
+      const dy = e.touches[0].clientY - startY;
+      if (dy <= 0 || el!.scrollTop > 0) { setIsPulling(false); setPullDistance(0); dragging = false; return; }
+      dragging = true;
+      setIsPulling(true);
+      e.preventDefault();
+      setPullDistance(Math.min(PULL_MAX, dy * 0.5));
+    }
+    async function onEnd() {
+      if (!dragging) { startY = null; return; }
+      dragging = false;
+      startY = null;
+      setIsPulling(false);
+      setPullDistance(current => {
+        if (current >= PULL_THRESHOLD) {
+          setRefreshing(true);
+          channelRef.current?.send({ type: 'broadcast', event: 'sync-request', payload: {} });
+          refetchTasks().finally(() => { setRefreshing(false); setPullDistance(0); });
+          return PULL_THRESHOLD * 0.8;
+        }
+        return 0;
+      });
+    }
+
+    el.addEventListener('touchstart', onStart, { passive: true });
+    el.addEventListener('touchmove', onMove, { passive: false });
+    el.addEventListener('touchend', onEnd, { passive: true });
+    return () => {
+      el.removeEventListener('touchstart', onStart);
+      el.removeEventListener('touchmove', onMove);
+      el.removeEventListener('touchend', onEnd);
+    };
+  }, [refetchTasks]);
 
   // ── Category CRUD ─────────────────────────────────────────────────────────
   function handleAddCategory() {
@@ -728,7 +791,18 @@ export default function App() {
         />
       </div>
 
-      <div className="task-scroll">
+      <div className="task-scroll" ref={scrollRef}>
+        <div
+          className="ptr-indicator"
+          style={{ height: pullDistance, opacity: pullDistance > 0 ? 1 : 0, transition: isPulling ? 'none' : 'height 200ms, opacity 200ms' }}
+        >
+          <span
+            className={`msym ptr-spinner ${refreshing ? 'ptr-spinning' : ''}`}
+            style={!refreshing ? { transform: `rotate(${(pullDistance / PULL_THRESHOLD) * 180}deg)` } : undefined}
+          >
+            refresh
+          </span>
+        </div>
         {(sortMode === 'due' ? BUCKET_ORDER : (['all'] as const)).map(bucket => (
           <TaskGroup
             key={bucket}
