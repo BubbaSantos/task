@@ -45,18 +45,21 @@ Categories (pick the best fit):
 
 Tag rules (important):
 ${hasKnownTags
-  ? `- You MUST only use tags from this existing list: ${knownTags.map(t => `"${t}"`).join(', ')}
-- Do NOT invent new tags. If nothing fits, use an empty array.
-- Only create a new tag if the user explicitly says "add tag [name]" or "new tag [name]" in their voice input.`
-  : `- No existing tags yet. Only create a tag if the user explicitly says "add tag [name]" or "new tag [name]".`}
+  ? `- Existing tags you can freely reuse when they fit: ${knownTags.map(t => `"${t}"`).join(', ')}
+- Only include a tag that is NOT in that list if the user is clearly, explicitly asking to tag/label the task with a specific new tag — for example "tag it as X", "add a tag called X", "new tag X", "label this X". Any phrasing of this request counts, not just those exact words.
+- Do not invent a tag just because a topic or keyword is mentioned in passing — only an explicit request to tag/label it counts.
+- If you're unsure whether the user is requesting a new tag, leave it out.`
+  : `- No existing tags yet. Only include a tag if the user is clearly, explicitly asking to tag/label the task with a specific new tag — for example "tag it as X", "add a tag called X", "new tag X", "label this X". Any phrasing of this request counts, not just those exact words.`}
 ${instructions?.trim() ? `\nAdditional instructions from the user (apply these above all else):\n${instructions.trim()}` : ''}
+
+Always return ONLY the JSON object below — never a refusal, explanation, or any other text. If something can't be determined, use the field's default (null / empty string / empty array) rather than explaining why.
 
 Return this JSON shape exactly:
 {
   "title": "concise action phrase only — no dates or categories here",
   "categoryId": "work|personal|health|errands",
   "dueDate": "YYYY-MM-DD or null if no date mentioned",
-  "tags": ["only-existing-tags"],
+  "tags": ["tags per the rules above"],
   "notes": "any extra detail not captured in the other fields, or empty string"
 }`;
 
