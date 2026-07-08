@@ -27,10 +27,9 @@ interface Props {
 }
 
 export function TaskSheet({ task, prefillTitle, parsed, categories, knownTagsByCategory, onSave, onDelete, onCancel }: Props) {
-  const today = new Date().toISOString().slice(0, 10);
   const [title, setTitle] = useState(task?.title ?? parsed?.title ?? prefillTitle ?? '');
   const [categoryId, setCategoryId] = useState(task?.categoryId ?? parsed?.categoryId ?? categories[0]?.id ?? '');
-  const [dueDate, setDueDate] = useState<string | null>(task?.dueDate ?? parsed?.dueDate ?? today);
+  const [dueDate, setDueDate] = useState<string | null>(task?.dueDate ?? parsed?.dueDate ?? null);
   const [notes, setNotes] = useState(task?.notes ?? parsed?.notes ?? '');
   const [tags, setTags] = useState<string[]>(task?.tags ?? parsed?.tags ?? []);
   const [tagInput, setTagInput] = useState('');
@@ -42,6 +41,51 @@ export function TaskSheet({ task, prefillTitle, parsed, categories, knownTagsByC
     if (!el) return;
     el.selectionStart = el.selectionEnd = el.value.length;
   }, [prefillTitle]);
+
+  // ── Swipe-down-to-close on the handle bar ─────────────────────────────────
+  const DISMISS_THRESHOLD = 100;
+  const handleRef = useRef<HTMLDivElement>(null);
+  const [dragY, setDragY] = useState(0);
+  const [isDraggingSheet, setIsDraggingSheet] = useState(false);
+  const onCancelRef = useRef(onCancel);
+  useEffect(() => { onCancelRef.current = onCancel; }, [onCancel]);
+
+  useEffect(() => {
+    const handle = handleRef.current;
+    if (!handle) return;
+    let startY: number | null = null;
+    let dy = 0;
+
+    function onStart(e: TouchEvent) {
+      startY = e.touches[0].clientY;
+      dy = 0;
+    }
+    function onMove(e: TouchEvent) {
+      if (startY === null) return;
+      dy = Math.max(0, e.touches[0].clientY - startY);
+      setIsDraggingSheet(true);
+      setDragY(dy);
+    }
+    function onEnd() {
+      if (startY === null) return;
+      startY = null;
+      setIsDraggingSheet(false);
+      if (dy > DISMISS_THRESHOLD) {
+        onCancelRef.current();
+      } else {
+        setDragY(0);
+      }
+    }
+
+    handle.addEventListener('touchstart', onStart, { passive: true });
+    handle.addEventListener('touchmove', onMove, { passive: true });
+    handle.addEventListener('touchend', onEnd, { passive: true });
+    return () => {
+      handle.removeEventListener('touchstart', onStart);
+      handle.removeEventListener('touchmove', onMove);
+      handle.removeEventListener('touchend', onEnd);
+    };
+  }, []);
 
   function addTag(raw: string) {
     const t = raw.trim().toLowerCase().replace(/\s+/g, '-');
@@ -82,8 +126,18 @@ export function TaskSheet({ task, prefillTitle, parsed, categories, knownTagsByC
 
   return (
     <div className={styles.backdrop} onClick={e => e.target === e.currentTarget && onCancel()}>
-      <div className={styles.sheet} role="dialog" aria-label={isEditing ? 'Edit task' : 'New task'}>
-        <div className={styles.handle} />
+      <div
+        className={styles.sheet}
+        role="dialog"
+        aria-label={isEditing ? 'Edit task' : 'New task'}
+        style={{
+          transform: dragY ? `translateY(${dragY}px)` : undefined,
+          transition: isDraggingSheet ? 'none' : 'transform 200ms ease-out',
+        }}
+      >
+        <div ref={handleRef} className={styles.handleHitArea}>
+          <div className={styles.handle} />
+        </div>
 
         <div className={styles.sheetHeader}>
           <span className={styles.sheetTitle}>{isEditing ? 'Edit task' : 'New task'}</span>
