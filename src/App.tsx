@@ -189,9 +189,15 @@ export default function App() {
     if (navigator.onLine) {
       await flushQueue();
       const pendingOps = getQueue();
+
+      // Fire all three reads concurrently instead of chaining them — cuts a
+      // 3-round-trip sequential load down to the time of the slowest single request.
+      const catsTagsPromise = Promise.all([dbFetchCategories(code), dbFetchAllTags(code)]);
+      const tasksPromise = dbFetchTasks(code);
+
       try {
         // Sync categories from DB (DB wins; if empty, push local defaults)
-        const dbCats = await dbFetchCategories(code);
+        const [dbCats, dbTags] = await catsTagsPromise;
         if (dbCats.length > 0) {
           cats = dbCats;
           categoriesRef.current = cats;
@@ -201,7 +207,6 @@ export default function App() {
           dbUpsertCategories(cats, code).catch(() => {});
         }
         // Sync tags from DB, merged with local
-        const dbTags = await dbFetchAllTags(code);
         const localTags = getAllTagsByCategory(code, cats);
         const mergedTags: Record<string, string[]> = {};
         for (const cat of cats) {
@@ -217,7 +222,7 @@ export default function App() {
       } catch { /* fall through */ }
 
       try {
-        const remote = await dbFetchTasks(code);
+        const remote = await tasksPromise;
         const remoteIds = new Set(remote.map(t => t.id));
 
         // Backfill: push any locally-cached tasks that Supabase doesn't have yet
@@ -556,16 +561,14 @@ export default function App() {
       if (startY === null) return;
       if (el!.scrollTop > 0) { startY = null; dragging = false; setIsPulling(false); setPullDistance(0); return; }
       const dy = e.touches[0].clientY - startY;
-      const clamped = Math.max(0, Math.min(PULL_MAX, dy * 0.5));
-      // Once a real downward pull has been detected, keep tracking it even if a
-      // later sample wobbles slightly negative (finger decelerating before lift-off) —
-      // otherwise the last touchmove before touchend can silently cancel the gesture.
-      if (dy > 4 || dragging) {
-        dragging = true;
-        setIsPulling(true);
-        e.preventDefault();
-        setPullDistance(clamped);
-      }
+      // preventDefault as early as possible (first downward sample) — iOS Safari
+      // ignores preventDefault on later touchmove events once it has already
+      // committed the gesture to native scroll/bounce handling.
+      if (dy <= 0 && !dragging) return;
+      dragging = true;
+      setIsPulling(true);
+      e.preventDefault();
+      setPullDistance(Math.max(0, Math.min(PULL_MAX, dy * 0.5)));
     }
     async function onEnd() {
       if (!dragging) { startY = null; return; }

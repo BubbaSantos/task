@@ -55,6 +55,7 @@
 .task-scroll {
   flex: 1;
   overflow-y: auto;
+  overscroll-behavior-y: contain;
   padding: 20px 20px 100px;
   scrollbar-width: none;
 }
