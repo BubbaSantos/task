@@ -554,12 +554,18 @@ export default function App() {
     }
     function onMove(e: TouchEvent) {
       if (startY === null) return;
+      if (el!.scrollTop > 0) { startY = null; dragging = false; setIsPulling(false); setPullDistance(0); return; }
       const dy = e.touches[0].clientY - startY;
-      if (dy <= 0 || el!.scrollTop > 0) { setIsPulling(false); setPullDistance(0); dragging = false; return; }
-      dragging = true;
-      setIsPulling(true);
-      e.preventDefault();
-      setPullDistance(Math.min(PULL_MAX, dy * 0.5));
+      const clamped = Math.max(0, Math.min(PULL_MAX, dy * 0.5));
+      // Once a real downward pull has been detected, keep tracking it even if a
+      // later sample wobbles slightly negative (finger decelerating before lift-off) —
+      // otherwise the last touchmove before touchend can silently cancel the gesture.
+      if (dy > 4 || dragging) {
+        dragging = true;
+        setIsPulling(true);
+        e.preventDefault();
+        setPullDistance(clamped);
+      }
     }
     async function onEnd() {
       if (!dragging) { startY = null; return; }
