@@ -10,11 +10,27 @@
 }
 
 .label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-secondary);
+}
+
+.labelRowClickable {
+  cursor: pointer;
+}
+
+.chevron {
+  font-size: 16px !important;
+  transition: transform 200ms;
+}
+
+.chevronCollapsed {
+  transform: rotate(-90deg);
 }
 
 .clearBtn {

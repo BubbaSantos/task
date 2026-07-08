@@ -23,6 +23,10 @@ function applyTheme(pref: ThemePref) {
   else root.removeAttribute('data-theme');
 }
 
+// ── Sort preference ──────────────────────────────────────────────────────────
+type SortMode = 'due' | 'newest' | 'oldest';
+const SORT_KEY = 'task-sort-mode';
+
 // ── Storage keys ─────────────────────────────────────────────────────────────
 const CODE_KEY = 'task-code';
 const NAME_KEY = 'task-username';
@@ -94,7 +98,6 @@ function setCached(code: string, tasks: Task[]) {
 }
 
 const BUCKET_ORDER = ['overdue', 'today', 'tomorrow', 'upcoming', 'none'] as const;
-const ALL_BUCKETS = [...BUCKET_ORDER, 'completed'] as const;
 
 interface ParsedTask { title: string; categoryId: string; dueDate: string | null; tags: string[]; notes: string; }
 
@@ -117,6 +120,11 @@ export default function App() {
     const saved = localStorage.getItem(THEME_KEY) as ThemePref | null;
     return saved ?? 'system';
   });
+  const [sortMode, setSortMode] = useState<SortMode>(() => {
+    const saved = localStorage.getItem(SORT_KEY) as SortMode | null;
+    return saved ?? 'due';
+  });
+  const [completedCollapsed, setCompletedCollapsed] = useState(false);
 
   // Manage categories UI state
   const [editingCat, setEditingCat] = useState<Category | null>(null);
@@ -440,9 +448,10 @@ export default function App() {
   }, []);
 
   function handleTaskSheetSave(draft: { id?: string; title: string; categoryId: string; dueDate: string | null; notes: string; completed: boolean; tags: string[] }) {
+    const existing = draft.id ? tasksRef.current.find(t => t.id === draft.id) : undefined;
     const task: Task = draft.id
-      ? { ...draft, id: draft.id }
-      : { ...draft, id: crypto.randomUUID() };
+      ? { ...draft, id: draft.id, createdAt: existing?.createdAt ?? new Date().toISOString() }
+      : { ...draft, id: crypto.randomUUID(), createdAt: new Date().toISOString() };
     if (task.tags.length) {
       const merged = mergeTags(codeRef.current, task.categoryId, task.tags);
       setKnownTagsByCategory(prev => ({ ...prev, [task.categoryId]: merged }));
@@ -604,6 +613,11 @@ export default function App() {
   // Apply saved theme on mount (before first render)
   useEffect(() => { applyTheme(themePref); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Sort preference ───────────────────────────────────────────────────────
+  useEffect(() => {
+    localStorage.setItem(SORT_KEY, sortMode);
+  }, [sortMode]);
+
   // ── Voice timer ───────────────────────────────────────────────────────────
   useEffect(() => {
     if (voiceCaptureState === 'listening') {
@@ -635,10 +649,13 @@ export default function App() {
     : tasks;
 
   const incomplete = filtered.filter(t => !t.completed);
-  const grouped = {
-    ...Object.fromEntries(BUCKET_ORDER.map(b => [b, incomplete.filter(t => getDateBucket(t.dueDate) === b)])),
-    completed: filtered.filter(t => t.completed),
-  } as Record<string, Task[]>;
+  const completedTasks = filtered.filter(t => t.completed);
+  const grouped = sortMode === 'due'
+    ? Object.fromEntries(BUCKET_ORDER.map(b => [b, incomplete.filter(t => getDateBucket(t.dueDate) === b)])) as Record<string, Task[]>
+    : { all: [...incomplete].sort((a, b) => {
+        const diff = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+        return sortMode === 'newest' ? -diff : diff;
+      }) };
 
   const code = codeRef.current;
   const userName = nameRef.current;
@@ -673,6 +690,18 @@ export default function App() {
             </div>
           )}
           <div className="settings-row">
+            <span className="settings-label">Sort by</span>
+            <select
+              className="settings-select"
+              value={sortMode}
+              onChange={e => setSortMode(e.target.value as SortMode)}
+            >
+              <option value="due">Due date</option>
+              <option value="newest">Newest first</option>
+              <option value="oldest">Oldest first</option>
+            </select>
+          </div>
+          <div className="settings-row">
             <span className="settings-label">Dark mode</span>
             <label className="theme-toggle">
               <input
@@ -700,7 +729,7 @@ export default function App() {
       </div>
 
       <div className="task-scroll">
-        {ALL_BUCKETS.map(bucket => (
+        {(sortMode === 'due' ? BUCKET_ORDER : (['all'] as const)).map(bucket => (
           <TaskGroup
             key={bucket}
             bucket={bucket}
@@ -709,10 +738,21 @@ export default function App() {
             onToggle={handleToggle}
             onOpen={handleOpenTask}
             onDelete={handleDeleteById}
-            onClearCompleted={bucket === 'completed' ? handleClearCompleted : undefined}
           />
         ))}
-        {incomplete.length === 0 && grouped.completed?.length === 0 && (
+        <TaskGroup
+          bucket="completed"
+          tasks={completedTasks}
+          categories={categories}
+          onToggle={handleToggle}
+          onOpen={handleOpenTask}
+          onDelete={handleDeleteById}
+          onClearCompleted={handleClearCompleted}
+          collapsible
+          collapsed={completedCollapsed}
+          onToggleCollapsed={() => setCompletedCollapsed(c => !c)}
+        />
+        {incomplete.length === 0 && completedTasks.length === 0 && (
           <div className="empty-state">
             No tasks here.{' '}
             <button className="empty-add" onClick={() => setTaskSheet({})}>Add one?</button>

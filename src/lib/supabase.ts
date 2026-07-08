@@ -27,6 +27,7 @@ export function rowToTask(row: Record<string, unknown>): Task {
     notes: (row.notes ?? '') as string,
     completed: row.completed as boolean,
     tags: (row.tags as string[]) ?? [],
+    createdAt: (row.created_at ?? new Date().toISOString()) as string,
   };
 }
 

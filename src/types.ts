@@ -6,6 +6,7 @@ export interface Task {
   notes: string;
   completed: boolean;
   tags: string[];
+  createdAt: string; // ISO timestamp
 }
 
 export interface Category {
@@ -16,4 +17,4 @@ export interface Category {
 
 export type VoiceCaptureState = 'idle' | 'listening' | 'transcribing' | 'parsing';
 
-export type DateBucket = 'overdue' | 'today' | 'tomorrow' | 'upcoming' | 'none' | 'completed';
+export type DateBucket = 'overdue' | 'today' | 'tomorrow' | 'upcoming' | 'none' | 'completed' | 'all';
